@@ -35,6 +35,10 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr twist_pub_;
   std::string frame_id_;
 
+  std::atomic<bool> send_frame_{false};
+  bool pre_keyb_state_{false};
+  int keyb_toggle_count_{0};
+
   // 线程相关
   std::unique_ptr<std::thread> publish_thread_;
   bool stop_thread_;

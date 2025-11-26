@@ -19,6 +19,8 @@ Or the namespaced (backward-compatible) form:
 
 Example params (see `params/example.yaml`)
 
+the state change key is the `keyb` in remote controller
+
 Usage
 1. Build package:
 

@@ -68,10 +68,12 @@ TwistServoDebugger::~TwistServoDebugger() {
 void TwistServoDebugger::publish_loop() {
   rclcpp::Rate rate(1000);  // 1kHz
   while (rclcpp::ok() && !stop_thread_) {
-    // 从实时缓冲区读取最新数据
-    const auto & twist_msg = *rt_buffer_.readFromRT();
-    // 发布消息
-    twist_pub_->publish(twist_msg);
+    if(send_frame_){
+      // 从实时缓冲区读取最新数据
+      const auto & twist_msg = *rt_buffer_.readFromRT();
+      // 发布消息
+      twist_pub_->publish(twist_msg);
+    }
     rate.sleep();
   }
 }
@@ -89,6 +91,11 @@ void TwistServoDebugger::rcCallback(const rm_message::msg::RemoteControl::Shared
     if (m.invert) val = -val;
     if (!m.axis.empty()) set_axis_value(new_twist.twist, m.axis, val);
   }
+
+  if(bool(msg->keyb) != pre_keyb_state_ && msg->keyb == 0){
+      send_frame_ = !send_frame_;
+  }
+  pre_keyb_state_ = bool(msg->keyb);
   
   // 写入实时缓冲区
   rt_buffer_.writeFromNonRT(new_twist);
