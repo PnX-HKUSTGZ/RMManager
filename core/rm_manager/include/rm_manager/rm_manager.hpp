@@ -6,6 +6,7 @@
 #include "rm_message/msg/remote_control.hpp"
 
 #include "rm_manager/uart_driver.hpp"
+#include "rm_manager/msg_publisher.hpp"
 
 #include <queue>
 #include <atomic>
@@ -101,29 +102,11 @@ private:
     // 裁判系统链路状态的pub
     std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Bool>> referee_status_pub_;
 
-    // 处理接受的数据的pub
-    std::map<uint16_t, std::shared_ptr<rclcpp::Publisher<rm_message::msg::GeneralMessage>>> general_pubs_;
-    // 保护general_pubs_的互斥锁
-    std::mutex general_pubs_mutex_;
-
     // 遥控器数据的pub
     std::shared_ptr<rclcpp::Publisher<rm_message::msg::RemoteControl>> remoto_control_pub_;
 
-    // remote_control_pub_的topic名称
-    std::string remote_control_topic_ = "/remote_control";
-
-    // custom_command_topics参数
-    std::vector<std::string> custom_command_topics_;
-    // custom_command_codes参数
-    std::vector<int64_t> custom_command_codes_;
-
-    /**
-     * @brief 得到对应command id 的pub
-     * 
-     * @param header 
-     * @return std::weak_ptr<rclcpp::Publisher<rm_message::msg::GeneralMessage>>
-     */
-    std::weak_ptr<rclcpp::Publisher<rm_message::msg::GeneralMessage>> _get_general_pub(uint16_t header);
+    // 消息发布管理器 - 处理所有协议消息的发布
+    std::unique_ptr<MsgPublisher> msg_publisher_;
 
     // 接受数据的sub
     std::shared_ptr<rclcpp::Subscription<rm_message::msg::SendMessage>> send_sub_;
@@ -142,37 +125,6 @@ private:
      * @return false 
      */
     bool _process_image_own_message(const std::vector<uint8_t>& data);
-
-    std::map<int, std::string> default_command_topics = {
-        {0x0001, "game_status_data"},
-        {0x0002, "game_result_data"},
-        {0x0003, "robot_hp_data"},
-        {0x0101, "field_event_data"},
-        {0x0104, "referee_warning_data"},
-        {0x0105, "dart_launch_data"},
-        {0x0201, "robot_performance_data"},
-        {0x0202, "chassis_buffer_heat_data"},
-        {0x0203, "robot_position_data"},
-        {0x0204, "robot_buff_chassis_energy_data"},
-        {0x0206, "damage_status_data"},
-        {0x0207, "realtime_shooting_data"},
-        {0x0208, "allowed_projectile_data"},
-        {0x0209, "robot_rfid_module_status"},
-        {0x020A, "dart_client_command_data"},
-        {0x020B, "ground_robot_position_data"},
-        {0x020C, "radar_mark_progress_data"},
-        {0x020D, "sentry_auto_decision_sync"},
-        {0x020E, "radar_auto_decision_sync"},
-        {0x0301, "robot_interaction_data"},
-        {0x0302, "custom_controller_to_robot_data"},
-        {0x0303, "client_minimap_interaction_data"},
-        {0x0304, "keyboard_mouse_control_data"},
-        {0x0305, "client_minimap_receive_radar_data"},
-        {0x0306, "custom_controller_to_client_data"},
-        {0x0307, "client_minimap_receive_path_data"},
-        {0x0308, "client_minimap_receive_robot_data"},
-        {0x0309, "custom_controller_receive_robot_data"}
-    };
 
 }; // class RMManagerNode
 

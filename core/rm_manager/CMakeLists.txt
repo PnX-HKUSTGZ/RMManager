@@ -17,7 +17,7 @@ find_package(rm_message REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread)
 
-add_executable(rm_manager src/rm_manager.cpp src/main.cpp src/util.cpp)
+add_executable(rm_manager src/rm_manager.cpp src/msg_publisher.cpp src/main.cpp src/util.cpp)
 
 ament_target_dependencies(rm_manager rclcpp rm_message Boost std_msgs)
 

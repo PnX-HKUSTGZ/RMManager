@@ -1,3 +1,3 @@
-uint8 cmd_id
+uint16 cmd_id
 uint16 data_length
 uint8[] data_payload
