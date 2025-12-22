@@ -212,7 +212,7 @@ void MsgPublisher::_parse_and_publish_0x0201(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0202(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(BufferAndHeatData), payload.size(), 0x0202)) return;
+    // if (!_validate_payload_size(sizeof(BufferAndHeatData), payload.size(), 0x0202)) return;
 
     BufferAndHeatData data = {};
     std::memcpy(&data, payload.data(), sizeof(BufferAndHeatData));
