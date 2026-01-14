@@ -32,11 +32,11 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     ref_topic = params_.ref_topic;
 
     // 检查 left_joint_names 与 right_joint_names 长度是否为6
-    if (left_joint_names.size() != 6) {
+    if (left_joint_names.size() != JOINT_NUM) {
         RCLCPP_ERROR(this->get_logger(), "Left joint names size is not 6!");
         throw std::runtime_error("Left joint names size is not 6!");
     }
-    if (right_joint_names.size() != 6) {
+    if (right_joint_names.size() != JOINT_NUM) {
         RCLCPP_ERROR(this->get_logger(), "Right joint names size is not 6!");
         throw std::runtime_error("Right joint names size is not 6!");
     }
@@ -72,17 +72,38 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::RobotCus
         return;
     }
 
+    // 输出 msg
+    // RCLCPP_INFO(this->get_logger(), "Received RobotCustomData message with data size: %zu", msg->data.size());
+    // for(size_t i = 0; i < msg->data.size(); ++i) {
+    //     RCLCPP_INFO(this->get_logger(), "  data[%zu]: %u", i, msg->data[i]);
+    // }
+
     // 解析裁判系统自定义数据
     ControlData control_data;
     rclcpp::Time now = this->now();
-    memccpy(&control_data, msg->data.data(), 0, sizeof(ControlData));
+    memcpy(&control_data, msg->data.data(), sizeof(ControlData));
+
+    // 输出 control_data
+    // RCLCPP_INFO(this->get_logger(), "Received custom controller data:");
+    // RCLCPP_INFO(this->get_logger(), "  Rotor Angles: ");
+    // for (size_t i = 0; i < 12; ++i) {
+    //     RCLCPP_INFO(this->get_logger(), "    %d", control_data.rotor_angles[i]);
+    // }
+    // RCLCPP_INFO(this->get_logger(), "  Channels: %d, %d, %d, %d",
+    //              control_data.channel_0,
+    //              control_data.channel_1,
+    //              control_data.channel_2,
+    //              control_data.channel_3);
+    // RCLCPP_INFO(this->get_logger(), "  GPIO State: %d", control_data.gpio_state);
 
     // 发布左机械臂关节状态
     auto left_joint_state_msg = std::make_shared<sensor_msgs::msg::JointState>();
     left_joint_state_msg->header.stamp = now;
     left_joint_state_msg->name = left_joint_names;
-    left_joint_state_msg->position.resize(6);
-    for (size_t i = 0; i < 6; ++i) {
+    left_joint_state_msg->position.resize(JOINT_NUM, 0.0);
+    left_joint_state_msg->velocity.resize(JOINT_NUM, 0.0);
+    left_joint_state_msg->effort.resize(JOINT_NUM, 0.0);
+    for (size_t i = 0; i < JOINT_NUM; ++i) {
         left_joint_state_msg->position[i] = uint_to_float(control_data.rotor_angles[i], POS_MIN, POS_MAX, BITS);
     }
     left_arm_state_pub_->publish(*left_joint_state_msg);
@@ -91,13 +112,15 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::RobotCus
     auto right_joint_state_msg = std::make_shared<sensor_msgs::msg::JointState>();
     right_joint_state_msg->header.stamp = now;
     right_joint_state_msg->name = right_joint_names;
-    right_joint_state_msg->position.resize(6);
-    for (size_t i = 0; i < 6; ++i) {
+    right_joint_state_msg->position.resize(JOINT_NUM, 0.0);
+    right_joint_state_msg->velocity.resize(JOINT_NUM, 0.0);
+    right_joint_state_msg->effort.resize(JOINT_NUM, 0.0);
+    for (size_t i = 0; i < JOINT_NUM; ++i) {
         right_joint_state_msg->position[i] = uint_to_float(control_data.rotor_angles[i + 6], POS_MIN, POS_MAX, BITS);
     }
     right_arm_state_pub_->publish(*right_joint_state_msg);
 
-    RCLCPP_DEBUG(this->get_logger(), "Published joint states from custom controller data");
+    // RCLCPP_DEBUG(this->get_logger(), "Published joint states from custom controller data");
 
 }
 

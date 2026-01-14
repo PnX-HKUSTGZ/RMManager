@@ -19,11 +19,11 @@ namespace rm_custom_controller_state
 const float POS_MIN = -3.1415926535f;  // -π
 const float POS_MAX = 3.1415926535f;   // +π
 const int BITS = 16;                   // 压缩到16位
+const int JOINT_NUM = 6;                // 每个机械臂关节数
 
 int float_to_uint(float x_float, float x_min, float x_max, int bits);
 float uint_to_float(int x_uint, float x_min, float x_max, int bits);
 
-#pragma pack(push, 1)
 typedef struct {
     /**
      * \brief 12个电机的机械角度 (24字节)
