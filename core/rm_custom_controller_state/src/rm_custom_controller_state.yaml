@@ -1,0 +1,26 @@
+rm_custom_controller_state:
+
+  left_arm_state_topic: {
+    type: string,
+    description: "ROS topic for the left arm controller state messages.",
+  }
+
+  right_arm_state_topic: {
+    type: string,
+    description: "ROS topic for the right arm controller state messages.",
+  }
+
+  left_joint_names: {
+    type: string_array,
+    description: "List of joint names for the left arm. 长度为 6。",
+  }
+
+  right_joint_names: {
+    type: string_array,
+    description: "List of joint names for the right arm. 长度为 6。",
+  }
+
+  ref_topic: {
+    type: string,
+    description: "ROS topic for the references system messages.",
+  }

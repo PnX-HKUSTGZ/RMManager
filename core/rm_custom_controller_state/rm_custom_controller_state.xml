@@ -1,0 +1,7 @@
+<library path="rm_custom_controller_state_component">
+  <class name="rm_custom_controller_state/RmCustomControllerState"
+         type="rm_custom_controller_state::RmCustomControllerState"
+         base_class_type="rclcpp_components::NodeFactory">
+    <description>Custom follower node for homomorphic manipulator trajectory publishing.</description>
+  </class>
+</library>

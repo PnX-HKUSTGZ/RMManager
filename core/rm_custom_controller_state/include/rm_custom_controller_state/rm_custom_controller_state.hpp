@@ -1,0 +1,87 @@
+#ifndef RM_CUSTOM_CONTROLLER_STATE__RM_CUSTOM_CONTROLLER_STATE_HPP_
+#define RM_CUSTOM_CONTROLLER_STATE__RM_CUSTOM_CONTROLLER_STATE_HPP_
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <memory>
+
+
+#include "rclcpp/rclcpp.hpp"
+
+#include "rm_message/msg/robot_custom_data.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
+#include "rm_custom_controller_state/rm_custom_controller_state_parameters.hpp"
+
+namespace rm_custom_controller_state
+{
+
+const float POS_MIN = -3.1415926535f;  // -π
+const float POS_MAX = 3.1415926535f;   // +π
+const int BITS = 16;                   // 压缩到16位
+
+int float_to_uint(float x_float, float x_min, float x_max, int bits);
+float uint_to_float(int x_uint, float x_min, float x_max, int bits);
+
+#pragma pack(push, 1)
+typedef struct {
+    /**
+     * \brief 12个电机的机械角度 (24字节)
+     * \brief 顺序为 left_j0 - left_j5 right_j0 - right_j5
+     */
+    uint16_t rotor_angles[12];
+    int8_t channel_0;
+    int8_t channel_1;
+    int8_t channel_2;
+    int8_t channel_3;
+    /**
+     * \brief 8个gpio状态,每个bit标识一个，未使用的为后续功能预留 (8字节)
+     */
+    uint8_t gpio_state;
+    uint8_t reserved;
+} ControlData;
+
+/**
+ * \class RmCustomControllerState
+ * \brief 用于从裁判系统接受自定义控制器状态信息的类
+ */
+class RmCustomControllerState : public rclcpp::Node{
+public:
+    RmCustomControllerState(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+
+    ~RmCustomControllerState() = default;
+
+private:
+
+    // 左机械臂关节状态topic
+    std::string left_arm_state_topic;
+    // 右机械臂关节状态topic
+    std::string right_arm_state_topic;
+
+    // 左机械臂关节名称，长度为6
+    std::vector<std::string> left_joint_names;
+    // 右机械臂关节名称，长度为6
+    std::vector<std::string> right_joint_names;
+
+    // 裁判系统的自定义数据topic
+    std::string ref_topic;
+
+    // 参数lisener
+    std::shared_ptr<ParamListener> param_listener_;
+    Params params_;
+
+    // 裁判系统自定义数据的订阅者
+    rclcpp::Subscription<rm_message::msg::RobotCustomData>::SharedPtr ref_topic_sub_;
+
+    // 左机械臂关节状态的发布者
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr left_arm_state_pub_;
+    // 右机械臂关节状态的发布者
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr right_arm_state_pub_;
+
+    void ref_topic_callback(const rm_message::msg::RobotCustomData::SharedPtr msg);
+
+};
+
+} // namespace rm_custom_controller_state
+
+#endif  // RM_CUSTOM_CONTROLLER_STATE__RM_CUSTOM_CONTROLLER_STATE_HPP_
