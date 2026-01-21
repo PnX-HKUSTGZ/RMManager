@@ -20,6 +20,41 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
     RCLCPP_INFO(this->get_logger(), "  delta_y: %.2f", params_->delta_y);
     RCLCPP_INFO(this->get_logger(), "  delta_z: %.2f", params_->delta_z);
 
+    // config button actions
+    
+    // 检查 长度
+    if(params_->target_bottons.size() != params_->on_state.size() ||
+       params_->target_bottons.size() != params_->on_action_topic.size() ||
+       params_->target_bottons.size() != params_->on_action_content.size()) {
+        RCLCPP_ERROR(this->get_logger(), "Parameter error: target_bottons, on_state, on_action_topic, on_action_content must have the same length.");
+        throw std::runtime_error("Parameter error: target_bottons, on_state, on_action_topic, on_action_content must have the same length.");
+    }
+
+    for(size_t i = 0; i < params_->target_bottons.size(); ++i) {
+        if(REMOTE_CONTROL_BUTTON_MAP.find(params_->target_bottons[i]) == REMOTE_CONTROL_BUTTON_MAP.end()) {
+            RCLCPP_ERROR(this->get_logger(), "Parameter error: unknown button name %s", params_->target_bottons[i].c_str());
+            throw std::runtime_error("Parameter error: unknown button name " + params_->target_bottons[i]);
+        }
+        if(REMOTE_CONTROL_ACTION_TYPE_MAP.find(params_->on_state[i]) == REMOTE_CONTROL_ACTION_TYPE_MAP.end()) {
+            RCLCPP_ERROR(this->get_logger(), "Parameter error: unknown action type %s", params_->on_state[i].c_str());
+            throw std::runtime_error("Parameter error: unknown action type " + params_->on_state[i]);
+        }
+
+        auto button = REMOTE_CONTROL_BUTTON_MAP.at(params_->target_bottons[i]);
+        REMOTE_CONTROL_ACTION_TYPE action_type = REMOTE_CONTROL_ACTION_TYPE_MAP.at(params_->on_state[i]);
+        std::string topic = params_->on_action_topic[i];
+        bool content = params_->on_action_content[i];
+
+        button_actions_.emplace_back(std::make_shared<ButtonAction>(this, button, action_type, topic, content));
+
+        // 输出
+        RCLCPP_INFO(this->get_logger(), "Configured ButtonAction: button=%s, action_type=%s, topic=%s, content=%s",
+            params_->target_bottons[i].c_str(),
+            params_->on_state[i].c_str(),
+            topic.c_str(),
+            content ? "true" : "false");
+    }
+
     cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(params_->cmd_vel_topic, 10);
     cmd_vel_sub_ = this->create_subscription<rm_message::msg::RemoteControl>(
         params_->remote_controller_topic, 10,
@@ -101,63 +136,111 @@ void RemoteController::sendEnableArm(const rm_message::msg::RemoteControl::Share
 
 void RemoteController::updateButtonStates(const rm_message::msg::RemoteControl::SharedPtr msg) {
 
-
-    // 检查某个按钮是否被按下的逻辑实现
-    button_pressed_[REMOTE_CONTROL_BUTTON::STOP] = (last_button_states_[REMOTE_CONTROL_BUTTON::STOP] == 0 && msg->stop == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::KEYL] = (last_button_states_[REMOTE_CONTROL_BUTTON::KEYL] == 0 && msg->keyl == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::KEYR] = (last_button_states_[REMOTE_CONTROL_BUTTON::KEYR] == 0 && msg->keyr == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::KEYB] = (last_button_states_[REMOTE_CONTROL_BUTTON::KEYB] == 0 && msg->keyb == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::PRESSL] = (last_button_states_[REMOTE_CONTROL_BUTTON::PRESSL] == 0 && msg->pressl == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::PRESSR] = (last_button_states_[REMOTE_CONTROL_BUTTON::PRESSR] == 0 && msg->pressr == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::PRESSMID] = (last_button_states_[REMOTE_CONTROL_BUTTON::PRESSMID] == 0 && msg->pressmid == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::W] = (last_button_states_[REMOTE_CONTROL_BUTTON::W] == 0 && msg->w == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::S] = (last_button_states_[REMOTE_CONTROL_BUTTON::S] == 0 && msg->s == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::A] = (last_button_states_[REMOTE_CONTROL_BUTTON::A] == 0 && msg->a == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::D] = (last_button_states_[REMOTE_CONTROL_BUTTON::D] == 0 && msg->d == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::SHIFT] = (last_button_states_[REMOTE_CONTROL_BUTTON::SHIFT] == 0 && msg->shift == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::CTRL] = (last_button_states_[REMOTE_CONTROL_BUTTON::CTRL] == 0 && msg->ctrl == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::Q] = (last_button_states_[REMOTE_CONTROL_BUTTON::Q] == 0 && msg->q == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::E] = (last_button_states_[REMOTE_CONTROL_BUTTON::E] == 0 && msg->e == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::R] = (last_button_states_[REMOTE_CONTROL_BUTTON::R] == 0 && msg->r == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::F] = (last_button_states_[REMOTE_CONTROL_BUTTON::F] == 0 && msg->f == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::G] = (last_button_states_[REMOTE_CONTROL_BUTTON::G] == 0 && msg->g == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::Z] = (last_button_states_[REMOTE_CONTROL_BUTTON::Z] == 0 && msg->z == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::X] = (last_button_states_[REMOTE_CONTROL_BUTTON::X] == 0 && msg->x == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::C] = (last_button_states_[REMOTE_CONTROL_BUTTON::C] == 0 && msg->c == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::V] = (last_button_states_[REMOTE_CONTROL_BUTTON::V] == 0 && msg->v == 1);
-    button_pressed_[REMOTE_CONTROL_BUTTON::B] = (last_button_states_[REMOTE_CONTROL_BUTTON::B] == 0 && msg->b == 1);
-
     // 更新按钮状态的逻辑实现
-    last_button_states_[REMOTE_CONTROL_BUTTON::STOP] = msg->stop;
-    last_button_states_[REMOTE_CONTROL_BUTTON::KEYL] = msg->keyl;
-    last_button_states_[REMOTE_CONTROL_BUTTON::KEYR] = msg->keyr;
-    last_button_states_[REMOTE_CONTROL_BUTTON::KEYB] = msg->keyb;
-    last_button_states_[REMOTE_CONTROL_BUTTON::PRESSL] = msg->pressl;
-    last_button_states_[REMOTE_CONTROL_BUTTON::PRESSR] = msg->pressr;
-    last_button_states_[REMOTE_CONTROL_BUTTON::PRESSMID] = msg->pressmid;
-    last_button_states_[REMOTE_CONTROL_BUTTON::W] = msg->w;
-    last_button_states_[REMOTE_CONTROL_BUTTON::S] = msg->s;
-    last_button_states_[REMOTE_CONTROL_BUTTON::A] = msg->a;
-    last_button_states_[REMOTE_CONTROL_BUTTON::D] = msg->d;
-    last_button_states_[REMOTE_CONTROL_BUTTON::SHIFT] = msg->shift;
-    last_button_states_[REMOTE_CONTROL_BUTTON::CTRL] = msg->ctrl;
-    last_button_states_[REMOTE_CONTROL_BUTTON::Q] = msg->q;
-    last_button_states_[REMOTE_CONTROL_BUTTON::E] = msg->e;
-    last_button_states_[REMOTE_CONTROL_BUTTON::R] = msg->r;
-    last_button_states_[REMOTE_CONTROL_BUTTON::F] = msg->f;
-    last_button_states_[REMOTE_CONTROL_BUTTON::G] = msg->g;
-    last_button_states_[REMOTE_CONTROL_BUTTON::Z] = msg->z;
-    last_button_states_[REMOTE_CONTROL_BUTTON::X] = msg->x;
-    last_button_states_[REMOTE_CONTROL_BUTTON::C] = msg->c;
-    last_button_states_[REMOTE_CONTROL_BUTTON::V] = msg->v;
-    last_button_states_[REMOTE_CONTROL_BUTTON::B] = msg->b;
+    for(auto &pair : button_current_) {
+        REMOTE_CONTROL_BUTTON button = pair.first;
+        uint8_t current_state = pair.second;
+        last_button_states_[button] = current_state;
+    }
+
+    button_current_[REMOTE_CONTROL_BUTTON::STOP] = msg->stop;
+    button_current_[REMOTE_CONTROL_BUTTON::KEYL] = msg->keyl;
+    button_current_[REMOTE_CONTROL_BUTTON::KEYR] = msg->keyr;
+    button_current_[REMOTE_CONTROL_BUTTON::KEYB] = msg->keyb;
+    button_current_[REMOTE_CONTROL_BUTTON::PRESSL] = msg->pressl;
+    button_current_[REMOTE_CONTROL_BUTTON::PRESSR] = msg->pressr;
+    button_current_[REMOTE_CONTROL_BUTTON::PRESSMID] = msg->pressmid;
+    button_current_[REMOTE_CONTROL_BUTTON::W] = msg->w;
+    button_current_[REMOTE_CONTROL_BUTTON::S] = msg->s;
+    button_current_[REMOTE_CONTROL_BUTTON::A] = msg->a;
+    button_current_[REMOTE_CONTROL_BUTTON::D] = msg->d;
+    button_current_[REMOTE_CONTROL_BUTTON::SHIFT] = msg->shift;
+    button_current_[REMOTE_CONTROL_BUTTON::CTRL] = msg->ctrl;
+    button_current_[REMOTE_CONTROL_BUTTON::Q] = msg->q;
+    button_current_[REMOTE_CONTROL_BUTTON::E] = msg->e;
+    button_current_[REMOTE_CONTROL_BUTTON::R] = msg->r;
+    button_current_[REMOTE_CONTROL_BUTTON::F] = msg->f;
+    button_current_[REMOTE_CONTROL_BUTTON::G] = msg->g;
+    button_current_[REMOTE_CONTROL_BUTTON::Z] = msg->z;
+    button_current_[REMOTE_CONTROL_BUTTON::X] = msg->x;
+    button_current_[REMOTE_CONTROL_BUTTON::C] = msg->c;
+    button_current_[REMOTE_CONTROL_BUTTON::V] = msg->v;
+
+
+    // 检查某个按钮是否被刚好被按下的逻辑实现
+    for(auto &pair : button_current_) {
+        REMOTE_CONTROL_BUTTON button = pair.first;
+        uint8_t current_state = pair.second;
+        uint8_t last_state = last_button_states_[button];
+
+        // 按钮被按下
+        if (current_state == 1 && last_state == 0) {
+            button_release_off_[button] = true;
+        } else {
+            button_release_off_[button] = false;
+        }
+    }
+
+    // button_pressed_off_
+    for(auto &pair : button_current_) {
+        REMOTE_CONTROL_BUTTON button = pair.first;
+        uint8_t current_state = pair.second;
+        uint8_t last_state = last_button_states_[button];
+
+        // 按钮被释放
+        if (current_state == 0 && last_state == 1) {
+            button_pressed_off_[button] = true;
+        } else {
+            button_pressed_off_[button] = false;
+        }
+    }
 
     // 更新button_toggled_
-    for (auto &pair : button_pressed_) {
+    for (auto &pair : button_release_off_) {
         REMOTE_CONTROL_BUTTON button = pair.first;
         if (pair.second) { // 如果按钮被按下
             button_toggled_[button] = !button_toggled_[button]; // 切换状态
         }
+    }
+
+    for(const auto& action : button_actions_) {
+        std::vector<REMOTE_CONTROL_ACTION_TYPE> trigger_types;
+        auto button = action->get_button();
+        if (button_release_off_[button]) {
+            trigger_types.push_back(REMOTE_CONTROL_ACTION_TYPE::ON_REALSED_OFF);
+        }
+        if (button_pressed_off_[button]) {
+            trigger_types.push_back(REMOTE_CONTROL_ACTION_TYPE::ON_PRESSED_OFF);
+        }
+        if (button_current_[button] == true) {
+            trigger_types.push_back(REMOTE_CONTROL_ACTION_TYPE::ON_PRESSED);
+        }
+        if (button_current_[button] == false) {
+            trigger_types.push_back(REMOTE_CONTROL_ACTION_TYPE::ON_REALSED);
+        }
+        if (button_toggled_[button]) {
+            trigger_types.push_back(REMOTE_CONTROL_ACTION_TYPE::ON_TOGGLED);
+        }
+
+        action->execute(trigger_types);
+    }
+}
+
+ButtonAction::ButtonAction(
+    rclcpp::Node * node,
+    REMOTE_CONTROL_BUTTON button,
+    REMOTE_CONTROL_ACTION_TYPE action_type, 
+    std::string topic, 
+    bool content) 
+    : action_type_(action_type), button_(button), content_(content) {
+    publisher_ = node->create_publisher<std_msgs::msg::Bool>(topic, 10);
+    }
+
+void ButtonAction::execute(const std::vector<REMOTE_CONTROL_ACTION_TYPE>& trigger_types) {
+    if (std::find(trigger_types.begin(), trigger_types.end(), action_type_) != trigger_types.end()) {
+        auto msg = std_msgs::msg::Bool();
+        msg.data = content_;
+        publisher_->publish(msg);
     }
 }
 

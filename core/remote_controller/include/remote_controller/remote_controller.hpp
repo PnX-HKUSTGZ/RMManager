@@ -38,6 +38,111 @@ enum class REMOTE_CONTROL_BUTTON {
     B
 };
 
+static const std::unordered_map<REMOTE_CONTROL_BUTTON, std::string> REMOTE_CONTROL_BUTTON_NAMES = {
+    {REMOTE_CONTROL_BUTTON::STOP, "STOP"},
+    {REMOTE_CONTROL_BUTTON::KEYL, "KEYL"},
+    {REMOTE_CONTROL_BUTTON::KEYR, "KEYR"},
+    {REMOTE_CONTROL_BUTTON::KEYB, "KEYB"},
+    {REMOTE_CONTROL_BUTTON::PRESSL, "PRESSL"},
+    {REMOTE_CONTROL_BUTTON::PRESSR, "PRESSR"},
+    {REMOTE_CONTROL_BUTTON::PRESSMID, "PRESSMID"},
+    {REMOTE_CONTROL_BUTTON::W, "W"},
+    {REMOTE_CONTROL_BUTTON::S, "S"},
+    {REMOTE_CONTROL_BUTTON::A, "A"},
+    {REMOTE_CONTROL_BUTTON::D, "D"},
+    {REMOTE_CONTROL_BUTTON::SHIFT, "SHIFT"},
+    {REMOTE_CONTROL_BUTTON::CTRL, "CTRL"},
+    {REMOTE_CONTROL_BUTTON::Q, "Q"},
+    {REMOTE_CONTROL_BUTTON::E, "E"},
+    {REMOTE_CONTROL_BUTTON::R, "R"},
+    {REMOTE_CONTROL_BUTTON::F, "F"},
+    {REMOTE_CONTROL_BUTTON::G, "G"},
+    {REMOTE_CONTROL_BUTTON::Z, "Z"},
+    {REMOTE_CONTROL_BUTTON::X, "X"},
+    {REMOTE_CONTROL_BUTTON::C, "C"},
+    {REMOTE_CONTROL_BUTTON::V, "V"},
+    {REMOTE_CONTROL_BUTTON::B, "B"}
+};
+
+static const std::unordered_map<std::string, REMOTE_CONTROL_BUTTON> REMOTE_CONTROL_BUTTON_MAP = {
+    {"STOP", REMOTE_CONTROL_BUTTON::STOP},
+    {"KEYL", REMOTE_CONTROL_BUTTON::KEYL},
+    {"KEYR", REMOTE_CONTROL_BUTTON::KEYR},
+    {"KEYB", REMOTE_CONTROL_BUTTON::KEYB},
+    {"PRESSL", REMOTE_CONTROL_BUTTON::PRESSL},
+    {"PRESSR", REMOTE_CONTROL_BUTTON::PRESSR},
+    {"PRESSMID", REMOTE_CONTROL_BUTTON::PRESSMID},
+    {"W", REMOTE_CONTROL_BUTTON::W},
+    {"S", REMOTE_CONTROL_BUTTON::S},
+    {"A", REMOTE_CONTROL_BUTTON::A},
+    {"D", REMOTE_CONTROL_BUTTON::D},
+    {"SHIFT", REMOTE_CONTROL_BUTTON::SHIFT},
+    {"CTRL", REMOTE_CONTROL_BUTTON::CTRL},
+    {"Q", REMOTE_CONTROL_BUTTON::Q},
+    {"E", REMOTE_CONTROL_BUTTON::E},
+    {"R", REMOTE_CONTROL_BUTTON::R},
+    {"F", REMOTE_CONTROL_BUTTON::F},
+    {"G", REMOTE_CONTROL_BUTTON::G},
+    {"Z", REMOTE_CONTROL_BUTTON::Z},
+    {"X", REMOTE_CONTROL_BUTTON::X},
+    {"C", REMOTE_CONTROL_BUTTON::C},
+    {"V", REMOTE_CONTROL_BUTTON::V},
+    {"B", REMOTE_CONTROL_BUTTON::B}
+};
+
+enum class REMOTE_CONTROL_ACTION_TYPE {
+    NONE,
+    ON_REALSED,
+    ON_PRESSED,
+    ON_TOGGLED,
+    ON_REALSED_OFF,
+    ON_PRESSED_OFF,
+};
+
+static const std::unordered_map<REMOTE_CONTROL_ACTION_TYPE, std::string> REMOTE_CONTROL_ACTION_TYPE_NAMES = {
+    {REMOTE_CONTROL_ACTION_TYPE::NONE, "NONE"},
+    {REMOTE_CONTROL_ACTION_TYPE::ON_REALSED, "ON_REALSED"},
+    {REMOTE_CONTROL_ACTION_TYPE::ON_PRESSED, "ON_PRESSED"},
+    {REMOTE_CONTROL_ACTION_TYPE::ON_TOGGLED, "ON_TOGGLED"},
+    {REMOTE_CONTROL_ACTION_TYPE::ON_REALSED_OFF, "ON_REALSED_OFF"},
+    {REMOTE_CONTROL_ACTION_TYPE::ON_PRESSED_OFF, "ON_PRESSED_OFF"}
+};
+
+static const std::unordered_map<std::string, REMOTE_CONTROL_ACTION_TYPE> REMOTE_CONTROL_ACTION_TYPE_MAP = {
+    {"NONE", REMOTE_CONTROL_ACTION_TYPE::NONE},
+    {"ON_REALSED", REMOTE_CONTROL_ACTION_TYPE::ON_REALSED},
+    {"ON_PRESSED", REMOTE_CONTROL_ACTION_TYPE::ON_PRESSED},
+    {"ON_TOGGLED", REMOTE_CONTROL_ACTION_TYPE::ON_TOGGLED},
+    {"ON_REALSED_OFF", REMOTE_CONTROL_ACTION_TYPE::ON_REALSED_OFF},
+    {"ON_PRESSED_OFF", REMOTE_CONTROL_ACTION_TYPE::ON_PRESSED_OFF}
+};
+
+class ButtonAction {
+public:
+    explicit ButtonAction(
+        rclcpp::Node * node,
+        REMOTE_CONTROL_BUTTON button,
+        REMOTE_CONTROL_ACTION_TYPE action_type, 
+        std::string topic, 
+        bool content);
+
+    void execute(const std::vector<REMOTE_CONTROL_ACTION_TYPE> & trigger_types);
+
+    REMOTE_CONTROL_ACTION_TYPE get_action_type() const {
+        return action_type_;
+    }
+
+    REMOTE_CONTROL_BUTTON get_button() const {
+        return button_;
+    }
+
+private:
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr publisher_;
+    REMOTE_CONTROL_ACTION_TYPE action_type_;
+    REMOTE_CONTROL_BUTTON button_;
+    bool content_;
+};
+
 class RemoteController : public rclcpp::Node{
 public:
     RemoteController(std::string  name = "remote_controller");
@@ -97,8 +202,35 @@ private:
         {REMOTE_CONTROL_BUTTON::B, 0}
     };
 
-    // 储存某个按钮是否被按下了，触发式
-    std::unordered_map<REMOTE_CONTROL_BUTTON, bool> button_pressed_ = {
+    // 储存某个按钮是否被刚好被按下的，触发式
+    std::unordered_map<REMOTE_CONTROL_BUTTON, bool> button_release_off_ = {
+        {REMOTE_CONTROL_BUTTON::STOP, false},
+        {REMOTE_CONTROL_BUTTON::KEYL, false},
+        {REMOTE_CONTROL_BUTTON::KEYR, false},
+        {REMOTE_CONTROL_BUTTON::KEYB, false},
+        {REMOTE_CONTROL_BUTTON::PRESSL, false},
+        {REMOTE_CONTROL_BUTTON::PRESSR, false},
+        {REMOTE_CONTROL_BUTTON::PRESSMID, false},
+        {REMOTE_CONTROL_BUTTON::W, false},
+        {REMOTE_CONTROL_BUTTON::S, false},
+        {REMOTE_CONTROL_BUTTON::A, false},
+        {REMOTE_CONTROL_BUTTON::D, false},
+        {REMOTE_CONTROL_BUTTON::SHIFT, false},
+        {REMOTE_CONTROL_BUTTON::CTRL, false},
+        {REMOTE_CONTROL_BUTTON::Q, false},
+        {REMOTE_CONTROL_BUTTON::E, false},
+        {REMOTE_CONTROL_BUTTON::R, false},
+        {REMOTE_CONTROL_BUTTON::F, false},
+        {REMOTE_CONTROL_BUTTON::G, false},
+        {REMOTE_CONTROL_BUTTON::Z, false},
+        {REMOTE_CONTROL_BUTTON::X, false},
+        {REMOTE_CONTROL_BUTTON::C, false},
+        {REMOTE_CONTROL_BUTTON::V, false},
+        {REMOTE_CONTROL_BUTTON::B, false}
+    };
+
+    // 储存某个按钮是否被刚好被释放的，触发式
+    std::unordered_map<REMOTE_CONTROL_BUTTON, bool> button_pressed_off_ = {
         {REMOTE_CONTROL_BUTTON::STOP, false},
         {REMOTE_CONTROL_BUTTON::KEYL, false},
         {REMOTE_CONTROL_BUTTON::KEYR, false},
@@ -151,6 +283,34 @@ private:
         {REMOTE_CONTROL_BUTTON::B, false}
     };
 
+    std::unordered_map<REMOTE_CONTROL_BUTTON, bool> button_current_ = {
+        {REMOTE_CONTROL_BUTTON::STOP, false},
+        {REMOTE_CONTROL_BUTTON::KEYL, false},
+        {REMOTE_CONTROL_BUTTON::KEYR, false},
+        {REMOTE_CONTROL_BUTTON::KEYB, false},
+        {REMOTE_CONTROL_BUTTON::PRESSL, false},
+        {REMOTE_CONTROL_BUTTON::PRESSR, false},
+        {REMOTE_CONTROL_BUTTON::PRESSMID, false},
+        {REMOTE_CONTROL_BUTTON::W, false},
+        {REMOTE_CONTROL_BUTTON::S, false},
+        {REMOTE_CONTROL_BUTTON::A, false},
+        {REMOTE_CONTROL_BUTTON::D, false},
+        {REMOTE_CONTROL_BUTTON::SHIFT, false},
+        {REMOTE_CONTROL_BUTTON::CTRL, false},
+        {REMOTE_CONTROL_BUTTON::Q, false},
+        {REMOTE_CONTROL_BUTTON::E, false},
+        {REMOTE_CONTROL_BUTTON::R, false},
+        {REMOTE_CONTROL_BUTTON::F, false},
+        {REMOTE_CONTROL_BUTTON::G, false},
+        {REMOTE_CONTROL_BUTTON::Z, false},
+        {REMOTE_CONTROL_BUTTON::X, false},
+        {REMOTE_CONTROL_BUTTON::C, false},
+        {REMOTE_CONTROL_BUTTON::V, false},
+        {REMOTE_CONTROL_BUTTON::B, false}
+    };
+
+    // 储存每个按键对应的action内容
+    std::vector<std::shared_ptr<ButtonAction>> button_actions_;
     // 更新按钮状态
     void updateButtonStates(const rm_message::msg::RemoteControl::SharedPtr msg);
 

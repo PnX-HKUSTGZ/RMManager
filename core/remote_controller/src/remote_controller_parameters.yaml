@@ -71,4 +71,30 @@ remote_controller:
     validation:
       bounds<>: [0.0, 10000.0]
 
+  target_bottons:
+    type: string_array
+    default_value: []
+    read_only: true
+    description: "List of target buttons for remote control"
+    validation:
+      subset_of<>: [["STOP", "KEYL", "KEYR", "KEYB", "PRESSL", "PRESSR", "PRESSMID", "W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
   
+  on_state:
+    type: string_array
+    default_value: []
+    read_only: true
+    description: "List of states when the action of the button is ON, ON_REALSED is for momentary buttons, ON_PRESSED is for press buttons, ON_TOGGLED is for toggle buttons"
+    validation:
+      subset_of<>: [["ON_REALSED", "ON_PRESSED", "ON_TOGGLED", "ON_REALSED_OFF", "ON_PRESSED_OFF"]]
+
+  on_action_topic:
+    type: string_array
+    default_value: []
+    read_only: true
+    description: "List of topics to publish when the button action is ON, type is std_msgs/msg/Bool"
+  
+  on_action_content:
+    type: bool_array
+    default_value: []
+    read_only: true
+    description: "List of content to publish when the button action is ON"
