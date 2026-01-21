@@ -19,6 +19,8 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
     RCLCPP_INFO(this->get_logger(), "  delta_x: %.2f", params_->delta_x);
     RCLCPP_INFO(this->get_logger(), "  delta_y: %.2f", params_->delta_y);
     RCLCPP_INFO(this->get_logger(), "  delta_z: %.2f", params_->delta_z);
+    RCLCPP_INFO(this->get_logger(), "  target_bottons size: %zu", params_->target_bottons.size());
+    RCLCPP_INFO(this->get_logger(), "  keyboard_remote_control_exchange_key: %s", params_->keyboard_remote_control_exchange_key.c_str());
 
     // config button actions
     
@@ -55,6 +57,35 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
             content ? "true" : "false");
     }
 
+    // keyboard_remote_controller_exchange_button
+
+    if(REMOTE_CONTROL_BUTTON_MAP.find(params_->keyboard_remote_control_exchange_key) == REMOTE_CONTROL_BUTTON_MAP.end()) {
+        RCLCPP_ERROR(this->get_logger(), "Parameter error: unknown button name %s", params_->keyboard_remote_control_exchange_key.c_str());
+        throw std::runtime_error("Parameter error: unknown button name " + params_->keyboard_remote_control_exchange_key);
+    }
+
+    // keyboard config
+    if(REMOTE_CONTROL_BUTTON_MAP.find(params_->keyboard_forward_key) == REMOTE_CONTROL_BUTTON_MAP.end() ||
+       REMOTE_CONTROL_BUTTON_MAP.find(params_->keyboard_backward_key) == REMOTE_CONTROL_BUTTON_MAP.end() ||
+       REMOTE_CONTROL_BUTTON_MAP.find(params_->keyboard_left_key) == REMOTE_CONTROL_BUTTON_MAP.end() ||
+       REMOTE_CONTROL_BUTTON_MAP.find(params_->keyboard_right_key) == REMOTE_CONTROL_BUTTON_MAP.end() ||
+       REMOTE_CONTROL_BUTTON_MAP.find(params_->keyboard_up_key) == REMOTE_CONTROL_BUTTON_MAP.end() ||
+       REMOTE_CONTROL_BUTTON_MAP.find(params_->keyboard_down_key) == REMOTE_CONTROL_BUTTON_MAP.end()) {
+        RCLCPP_ERROR(this->get_logger(), "Parameter error: unknown keyboard button name");
+        throw std::runtime_error("Parameter error: unknown keyboard button name");
+    }
+
+    keyboard_forward_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->keyboard_forward_key);
+    keyboard_backward_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->keyboard_backward_key);
+    keyboard_left_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->keyboard_left_key);
+    keyboard_right_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->keyboard_right_key);
+    keyboard_up_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->keyboard_up_key);
+    keyboard_down_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->keyboard_down_key);
+    keyboard_up_ratio_ = params_->keyboard_up_ratio;
+    keyboard_down_ratio_ = params_->keyboard_down_ratio;
+
+    keyboard_remote_control_exchange_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->keyboard_remote_control_exchange_key);
+
     cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(params_->cmd_vel_topic, 10);
     cmd_vel_sub_ = this->create_subscription<rm_message::msg::RemoteControl>(
         params_->remote_controller_topic, 10,
@@ -73,7 +104,18 @@ RemoteController::~RemoteController() {}
 
 void RemoteController::cmdVelCallback(const rm_message::msg::RemoteControl::SharedPtr msg) {
     updateButtonStates(msg);
-    sendVel(msg);
+
+    // 输出 button_toggled_[keyboard_remote_control_exchange_button_] 状态
+    RCLCPP_INFO(this->get_logger(), "Button toggled state for keyboard_remote_control_exchange_button_: %s",
+                button_toggled_[keyboard_remote_control_exchange_button_] ? "true" : "false");
+
+    if(button_toggled_[keyboard_remote_control_exchange_button_]) {
+        keyboardSendVel(msg);
+    }
+    else{
+        sendVel(msg);
+    }
+
     sendEnableChasis(msg);
     sendEnableArm(msg);
 }
@@ -224,6 +266,63 @@ void RemoteController::updateButtonStates(const rm_message::msg::RemoteControl::
 
         action->execute(trigger_types);
     }
+}
+
+void RemoteController::keyboardSendVel(const rm_message::msg::RemoteControl::SharedPtr msg) {
+    // Implementation for keyboardSendVel if needed
+
+    auto twist_msg = geometry_msgs::msg::TwistStamped();
+    twist_msg.header.stamp = this->now();
+    twist_msg.header.frame_id = "base_link";
+
+    // 限制加速度
+    float desired_x = button_current_[keyboard_forward_button_] ? params_->max_x :
+                      button_current_[keyboard_backward_button_] ? -params_->max_x : 0.0f;
+    float desired_y = button_current_[keyboard_left_button_] ? params_->max_y :
+                      button_current_[keyboard_right_button_] ? -params_->max_y : 0.0f;
+    float desired_z = std::clamp(msg->mousex * params_->keyboard_mousex_scale, -params_->max_z, params_->max_z);
+
+    // 处理上下键
+    if (button_current_[keyboard_up_button_]) {
+        desired_x *= keyboard_up_ratio_;
+        desired_y *= keyboard_up_ratio_;
+        desired_z *= keyboard_up_ratio_;
+    } else if (button_current_[keyboard_down_button_]) {
+        desired_x *= keyboard_down_ratio_;
+        desired_y *= keyboard_down_ratio_;
+        desired_z *= keyboard_down_ratio_;
+    }
+
+    rclcpp::Time current_time = this->now();
+    double time_diff = (current_time - last_time_).seconds();
+    last_time_ = current_time;
+
+    // 限制加速度 允许急停
+    if (std::abs(desired_x) >= 1e-4 && std::abs(desired_x - last_x_) > params_->delta_x*time_diff) {
+        desired_x = last_x_ + (desired_x > last_x_ ? params_->delta_x*time_diff : -params_->delta_x*time_diff);
+    }
+    if (std::abs(desired_y) >= 1e-4 && std::abs(desired_y - last_y_) > params_->delta_y*time_diff) {
+        desired_y = last_y_ + (desired_y > last_y_ ? params_->delta_y*time_diff : -params_->delta_y*time_diff);
+    }
+    if (std::abs(desired_z) >= 1e-4 && std::abs(desired_z - last_z_) > params_->delta_z*time_diff) {
+        desired_z = last_z_ + (desired_z > last_z_ ? params_->delta_z*time_diff : -params_->delta_z*time_diff);
+    }
+
+    twist_msg.twist.linear.x = desired_x;
+    twist_msg.twist.linear.y = desired_y;
+    twist_msg.twist.angular.z = desired_z;
+
+    last_x_ = twist_msg.twist.linear.x;
+    last_y_ = twist_msg.twist.linear.y;
+    last_z_ = twist_msg.twist.angular.z;
+
+    if (button_toggled_[REMOTE_CONTROL_BUTTON::KEYB]) {
+        return;
+    }
+
+    cmd_vel_pub_->publish(twist_msg);
+    RCLCPP_DEBUG(this->get_logger(), "Published cmd_vel: linear.x=%.3f, angular.z=%.3f", twist_msg.twist.linear.x, twist_msg.twist.angular.z);
+
 }
 
 ButtonAction::ButtonAction(

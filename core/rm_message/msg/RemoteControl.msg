@@ -8,9 +8,9 @@ uint8 keyl
 uint8 keyr
 uint16 wheel
 uint8 keyb
-uint16 mousex
-uint16 mousey
-uint16 mousez
+int16 mousex
+int16 mousey
+int16 mousez
 uint8 pressl
 uint8 pressr
 uint8 pressmid

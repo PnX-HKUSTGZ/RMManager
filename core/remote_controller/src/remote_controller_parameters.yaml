@@ -71,6 +71,86 @@ remote_controller:
     validation:
       bounds<>: [0.0, 10000.0]
 
+  keyboard_forward_key:
+    type: string
+    default_value: "W"
+    description: "Key for moving forward in keyboard remote control mode"
+    read_only: true
+    validation:
+      one_of<>: [["W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
+    
+  keyboard_backward_key:
+    type: string
+    default_value: "S"
+    description: "Key for moving backward in keyboard remote control mode"
+    read_only: true
+    validation:
+      one_of<>: [["W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
+    
+  keyboard_left_key:
+    type: string
+    default_value: "A"
+    description: "Key for moving left in keyboard remote control mode"
+    read_only: true
+    validation:
+      one_of<>: [["W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
+
+  keyboard_right_key:
+    type: string
+    default_value: "D"
+    description: "Key for moving right in keyboard remote control mode"
+    read_only: true
+    validation:
+      one_of<>: [["W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
+
+  keyboard_up_key:
+    type: string
+    default_value: "SHIFT"
+    description: "Key for moving up in keyboard remote control mode"
+    read_only: true
+    validation:
+      one_of<>: [["W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
+
+  keyboard_down_key:
+    type: string
+    default_value: "CTRL"
+    description: "Key for moving down in keyboard remote control mode"
+    read_only: true
+    validation:
+      one_of<>: [["W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
+
+  keyboard_up_ratio:
+    type: double
+    default_value: 1.5
+    description: "Speed ratio for upward movement in keyboard remote control mode"
+    read_only: true
+    validation:
+      bounds<>: [1.0, 5.0]
+
+  keyboard_down_ratio:
+    type: double
+    default_value: 0.5
+    description: "Speed ratio for downward movement in keyboard remote control mode"
+    read_only: true
+    validation:
+      bounds<>: [0.0, 1.0]
+    
+  keyboard_mousex_scale:
+    type: double
+    default_value: -0.05
+    description: "Scale factor for mouse X movement in keyboard remote control mode"
+    read_only: true
+    
+
+  keyboard_remote_control_exchange_key:
+    type: string
+    default_value: "KEYL"
+    description: "Key to switch to keyboard remote control mode"
+    read_only: true
+    validation:
+      one_of<>: [["STOP", "KEYL", "KEYR", "KEYB", "PRESSL", "PRESSR", "PRESSMID", "W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
+
+
   target_bottons:
     type: string_array
     default_value: []

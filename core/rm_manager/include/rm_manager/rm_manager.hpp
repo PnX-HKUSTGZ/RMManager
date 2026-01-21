@@ -37,9 +37,9 @@ struct RemoteControlData{
     uint8_t keyr : 1;
     uint16_t wheel : 11;
     uint8_t keyb : 1;
-    uint16_t mousex : 16;
-    uint16_t mousey : 16;
-    uint16_t mousez : 16;
+    int16_t mousex : 16;
+    int16_t mousey : 16;
+    int16_t mousez : 16;
     uint8_t pressl : 2;
     uint8_t pressr : 2;
     uint8_t pressmid : 2;

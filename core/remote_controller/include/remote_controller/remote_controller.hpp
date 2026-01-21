@@ -163,6 +163,8 @@ private:
 
     void sendVel(const rm_message::msg::RemoteControl::SharedPtr msg);
 
+    void keyboardSendVel(const rm_message::msg::RemoteControl::SharedPtr msg);
+
     void sendEnableChasis(const rm_message::msg::RemoteControl::SharedPtr msg);
 
     void sendEnableArm(const rm_message::msg::RemoteControl::SharedPtr msg);
@@ -172,6 +174,17 @@ private:
     float last_z_ = 0;
 
     std::string stop_button_;
+
+    REMOTE_CONTROL_BUTTON keyboard_remote_control_exchange_button_;
+
+    REMOTE_CONTROL_BUTTON keyboard_forward_button_;
+    REMOTE_CONTROL_BUTTON keyboard_backward_button_;
+    REMOTE_CONTROL_BUTTON keyboard_left_button_;
+    REMOTE_CONTROL_BUTTON keyboard_right_button_;
+    REMOTE_CONTROL_BUTTON keyboard_up_button_;
+    REMOTE_CONTROL_BUTTON keyboard_down_button_;
+    double keyboard_up_ratio_ = 1.5;
+    double keyboard_down_ratio_ = 0.5;
 
     rclcpp::Time last_time_;
 
