@@ -13,6 +13,12 @@
   <test_depend>ament_lint_common</test_depend>
 
   <depend>rm_message</depend>
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  
+  <build_depend>generate_parameter_library</build_depend>
+  <exec_depend>generate_parameter_library</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

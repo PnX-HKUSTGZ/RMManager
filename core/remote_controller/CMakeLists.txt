@@ -16,6 +16,12 @@ find_package(rm_message REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread)
 find_package(geometry_msgs REQUIRED)
+find_package(generate_parameter_library REQUIRED)
+
+# Generate parameter library
+generate_parameter_library(remote_controller_parameters
+  src/remote_controller_parameters.yaml
+)
 
 add_executable(remote_controller src/remote_controller.cpp src/main.cpp)
 
@@ -24,6 +30,10 @@ ament_target_dependencies(remote_controller
   rm_message
   std_msgs
   geometry_msgs
+)
+
+target_link_libraries(remote_controller
+  remote_controller_parameters
 )
 
 target_include_directories(remote_controller PRIVATE

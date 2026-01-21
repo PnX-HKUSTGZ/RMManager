@@ -5,6 +5,7 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 
 #include "std_msgs/msg/bool.hpp"
+#include <remote_controller/remote_controller_parameters.hpp>
 
 #ifndef RMREMOTE_CONTROLLER_HPP
 #define RMREMOTE_CONTROLLER_HPP
@@ -42,11 +43,10 @@ public:
     RemoteController(std::string  name = "remote_controller");
     ~RemoteController();
 private:
+    // Parameter handler
+    std::shared_ptr<remote_controller::ParamListener> param_listener_;
+    std::shared_ptr<remote_controller::Params> params_;
 
-    std::string cmd_vel_topic_;
-    std::string remote_controller_topic_;
-    std::string chasis_enable_topic_;
-    std::string arm_enable_topic_;
     rclcpp::Subscription<rm_message::msg::RemoteControl>::SharedPtr cmd_vel_sub_;
 
     rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
@@ -62,17 +62,9 @@ private:
 
     void sendEnableArm(const rm_message::msg::RemoteControl::SharedPtr msg);
 
-    float max_x = 0;
-    float max_y = 0;
-    float max_z = 0;
-
     float last_x_ = 0;
     float last_y_ = 0;
     float last_z_ = 0;
-
-    float delta_x = 0;
-    float delta_y = 0;
-    float delta_z = 0;
 
     std::string stop_button_;
 

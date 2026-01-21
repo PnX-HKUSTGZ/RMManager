@@ -1,0 +1,74 @@
+remote_controller:
+  cmd_vel_topic:
+    type: string
+    default_value: "/mcknum_controller/reference"
+    description: "Topic for publishing velocity commands"
+    read_only: false
+    
+  remote_controller_topic:
+    type: string
+    default_value: "/rm_manager/remote_control"
+    description: "Topic for subscribing to remote control messages"
+    read_only: false
+    
+  chasis_enable_topic:
+    type: string
+    default_value: "/enable_chasis"
+    description: "Topic for publishing chassis enable status"
+    read_only: false
+    
+  arm_enable_topic:
+    type: string
+    default_value: "/enable_arm"
+    description: "Topic for publishing arm enable status"
+    read_only: false
+    
+  max_x:
+    type: double
+    default_value: 0.5
+    description: "Maximum linear velocity in x direction (m/s)"
+    read_only: false
+    validation:
+      bounds<>: [0.0, 10.0]
+    
+  max_y:
+    type: double
+    default_value: 0.5
+    description: "Maximum linear velocity in y direction (m/s)"
+    read_only: false
+    validation:
+      bounds<>: [0.0, 10.0]
+    
+  max_z:
+    type: double
+    default_value: 0.5
+    description: "Maximum angular velocity in z direction (rad/s)"
+    read_only: false
+    validation:
+      bounds<>: [0.0, 10.0]
+    
+  delta_x:
+    type: double
+    default_value: 1000.0
+    description: "Maximum acceleration in x direction (m/s²)"
+    read_only: false
+    validation:
+      bounds<>: [0.0, 10000.0]
+    
+  delta_y:
+    type: double
+    default_value: 1000.0
+    description: "Maximum acceleration in y direction (m/s²)"
+    read_only: false
+    validation:
+      bounds<>: [0.0, 10000.0]
+    
+  delta_z:
+    type: double
+    default_value: 1000.0
+    description: "Maximum angular acceleration in z direction (rad/s²)"
+    read_only: false
+    validation:
+      bounds<>: [0.0, 10000.0]
+
+  
