@@ -57,7 +57,7 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     left_arm_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(left_arm_state_topic, 10);
     right_arm_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(right_arm_state_topic, 10);
     // 创建订阅者
-    ref_topic_sub_ = this->create_subscription<rm_message::msg::RobotCustomData>(
+    ref_topic_sub_ = this->create_subscription<rm_message::msg::CustomController>(
         ref_topic,
         10,
         std::bind(&RmCustomControllerState::ref_topic_callback, this, std::placeholders::_1)
@@ -65,7 +65,7 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
 
 }
 
-void RmCustomControllerState::ref_topic_callback(const rm_message::msg::RobotCustomData::SharedPtr msg)
+void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomController::SharedPtr msg)
 {
     if(msg == nullptr) {
         RCLCPP_WARN(this->get_logger(), "Received null message on ref_topic");

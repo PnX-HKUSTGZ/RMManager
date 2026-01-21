@@ -17,7 +17,7 @@ float32 infantry3_y
 float32 infantry4_x
 # 己方4号步兵Y坐标 (float, m)
 float32 infantry4_y
-# 己方5号步兵X坐标 (float, m)
-float32 infantry5_x
-# 己方5号步兵Y坐标 (float, m)
-float32 infantry5_y
+# reserved
+float32 reserved1
+# reserved
+float32 reserved2

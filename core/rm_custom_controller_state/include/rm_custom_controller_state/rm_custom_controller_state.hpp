@@ -9,7 +9,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "rm_message/msg/robot_custom_data.hpp"
+#include "rm_message/msg/custom_controller.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "rm_custom_controller_state/rm_custom_controller_state_parameters.hpp"
 
@@ -71,14 +71,14 @@ private:
     Params params_;
 
     // 裁判系统自定义数据的订阅者
-    rclcpp::Subscription<rm_message::msg::RobotCustomData>::SharedPtr ref_topic_sub_;
+    rclcpp::Subscription<rm_message::msg::CustomController>::SharedPtr ref_topic_sub_;
 
     // 左机械臂关节状态的发布者
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr left_arm_state_pub_;
     // 右机械臂关节状态的发布者
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr right_arm_state_pub_;
 
-    void ref_topic_callback(const rm_message::msg::RobotCustomData::SharedPtr msg);
+    void ref_topic_callback(const rm_message::msg::CustomController::SharedPtr msg);
 
 };
 

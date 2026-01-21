@@ -24,6 +24,17 @@
 #include "rm_message/msg/sentry_decision.hpp"
 #include "rm_message/msg/radar_decision.hpp"
 #include "rm_message/msg/ref_remote_control.hpp"
+#include "rm_message/msg/robot_interaction.hpp"
+#include "rm_message/msg/custom_controller.hpp"
+#include "rm_message/msg/map_downlink.hpp"
+#include "rm_message/msg/radar_map_uplink.hpp"
+#include "rm_message/msg/key_mouse_simulation.hpp"
+#include "rm_message/msg/path_uplink.hpp"
+#include "rm_message/msg/custom_string.hpp"
+#include "rm_message/msg/robot_custom_data.hpp"
+#include "rm_message/msg/robot_custom_data_large.hpp"
+#include "rm_message/msg/set_vtm_channel.hpp"
+#include "rm_message/msg/query_vtm_channel.hpp"
 
 #include <cstring>
 #include <map>
@@ -162,11 +173,13 @@ struct AmmoAllowanceData {
     uint16_t ammo_17mm;
     uint16_t ammo_42mm;
     uint16_t coin_count;
+    uint16_t projectile_allowance_fortress;
 } __attribute__((packed));
 
-// 0x0209 - RFID Status (4 bytes)
+// 0x0209 - RFID Status (5 bytes)
 struct RFIDStatusData {
     uint32_t rfid_status;
+    uint8_t rfid_status_2;
 } __attribute__((packed));
 
 // 0x020A - Dart Cmd (6 bytes)
@@ -187,8 +200,8 @@ struct GroundPositionsData {
     float infantry3_y;
     float infantry4_x;
     float infantry4_y;
-    float infantry5_x;
-    float infantry5_y;
+    float reserved1;
+    float reserved2;
 } __attribute__((packed));
 
 // 0x020C - Radar Mark (2 bytes)
@@ -196,23 +209,100 @@ struct RadarMarkData {
     uint16_t radar_mark_status;
 } __attribute__((packed));
 
-// 0x020D - Sentry Decision (5 bytes)
+// 0x020D - Sentry Decision (6 bytes)
 struct SentryDecisionData {
-    uint16_t allow_bullet_count : 11;  // bit 0-10
-    uint8_t exchange_count : 4;        // bit 11-14
-    uint8_t free_revive_available : 1; // bit 19
-    uint8_t immediate_revive_available : 1; // bit 20
-    uint8_t sentry_attitude : 2;       // bit 12-13
-    uint8_t energy_gear_available : 1; // bit 14
-    uint8_t reserved : 3;              // bit 15-17
+    uint32_t sentry_info;      // 4字节
+    uint16_t sentry_info_2;    // 2字节
 } __attribute__((packed));
 
 // 0x020E - Radar Decision (1 byte)
 struct RadarDecisionData {
-    uint8_t double_vulnerable_count : 2; // bit 0-1
-    uint8_t enemy_vulnerable : 1;        // bit 2
-    uint8_t encryption_level : 2;        // bit 3-4
-    uint8_t reserved : 3;                // bit 5-7
+    uint8_t radar_info;
+} __attribute__((packed));
+
+// 0x0301 - Robot Interaction (可变长度)
+struct RobotInteractionData {
+    uint16_t content_id;
+    uint16_t sender_id;
+    uint16_t receiver_id;
+    // 后续是可变长度数据
+} __attribute__((packed));
+
+// 0x0302 - Custom Controller (30 bytes)
+struct CustomControllerData {
+    uint8_t data[30];
+} __attribute__((packed));
+
+// 0x0303 - Map Downlink (15 bytes)
+struct MapDownlinkData {
+    float target_x;
+    float target_y;
+    uint8_t key_value;
+    uint8_t enemy_id;
+    uint16_t source_id;
+    uint8_t reserved;
+} __attribute__((packed));
+
+// 0x0305 - Radar Map Uplink (24 bytes)
+struct RadarMapUplinkData {
+    uint16_t hero_x;
+    uint16_t hero_y;
+    uint16_t engineer_x;
+    uint16_t engineer_y;
+    uint16_t infantry3_x;
+    uint16_t infantry3_y;
+    uint16_t infantry4_x;
+    uint16_t infantry4_y;
+    uint16_t infantry5_x;
+    uint16_t infantry5_y;
+    uint16_t sentry_x;
+    uint16_t sentry_y;
+} __attribute__((packed));
+
+// 0x0306 - Key Mouse Simulation (8 bytes)
+struct KeyMouseSimulationData {
+    uint8_t key1;
+    uint8_t key2;
+    uint16_t mouse_x;
+    uint8_t left_button;
+    uint16_t mouse_y;
+    uint8_t right_button;
+} __attribute__((packed));
+
+// 0x0307 - Path Uplink (103 bytes)
+struct PathUplinkData {
+    uint8_t intention;
+    float start_x;
+    float start_y;
+    uint8_t delta_x[49];
+    uint8_t delta_y[49];
+} __attribute__((packed));
+
+// 0x0308 - Custom String (34 bytes)
+struct CustomStringData {
+    uint16_t sender_id;
+    uint16_t receiver_id;
+    uint8_t content[30];
+} __attribute__((packed));
+
+// 0x0309 - Robot Custom Data (30 bytes)
+struct RobotCustomDataData {
+    uint8_t data[30];
+} __attribute__((packed));
+
+// 0x0310 - Robot Custom Data Large (150 bytes)
+struct RobotCustomDataLargeData {
+    uint8_t data[150];
+} __attribute__((packed));
+
+// 0x0F01 - Set VTM Channel (1 byte)
+struct SetVTMChannelData {
+    uint8_t channel;
+} __attribute__((packed));
+
+// 0x0F02 - Query VTM Channel (1 byte)
+struct QueryVTMChannelData {
+    uint8_t channel;
 } __attribute__((packed));
 
 // ============================================================
@@ -238,7 +328,18 @@ static const std::map<uint16_t, std::string> TOPIC_NAME_MAP = {
     {0x020C, "radar_mark"},
     {0x020D, "sentry_decision"},
     {0x020E, "radar_decision"},
+    {0x0301, "robot_interaction"},
+    {0x0302, "custom_controller"},
+    {0x0303, "map_downlink"},
     {0x0304, "ref_remote_control"},
+    {0x0305, "radar_map_uplink"},
+    {0x0306, "key_mouse_simulation"},
+    {0x0307, "path_uplink"},
+    {0x0308, "custom_string"},
+    {0x0309, "robot_custom_data"},
+    {0x0310, "robot_custom_data_large"},
+    {0x0F01, "set_vtm_channel"},
+    {0x0F02, "query_vtm_channel"},
 };
 
 // ============================================================
@@ -285,7 +386,18 @@ private:
     std::shared_ptr<rclcpp::Publisher<rm_message::msg::RadarMark>> pub_0x020C_;
     std::shared_ptr<rclcpp::Publisher<rm_message::msg::SentryDecision>> pub_0x020D_;
     std::shared_ptr<rclcpp::Publisher<rm_message::msg::RadarDecision>> pub_0x020E_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::RobotInteraction>> pub_0x0301_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::CustomController>> pub_0x0302_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::MapDownlink>> pub_0x0303_;
     std::shared_ptr<rclcpp::Publisher<rm_message::msg::RefRemoteControl>> pub_0x0304_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::RadarMapUplink>> pub_0x0305_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::KeyMouseSimulation>> pub_0x0306_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::PathUplink>> pub_0x0307_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::CustomString>> pub_0x0308_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::RobotCustomData>> pub_0x0309_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::RobotCustomDataLarge>> pub_0x0310_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::SetVTMChannel>> pub_0x0F01_;
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::QueryVTMChannel>> pub_0x0F02_;
 
     // 通用消息publisher - 用于可变长消息和未知消息类型
     std::shared_ptr<rclcpp::Publisher<rm_message::msg::GeneralMessage>> pub_general_;
@@ -315,7 +427,18 @@ private:
     void _parse_and_publish_0x020C(const std::vector<uint8_t>& payload);
     void _parse_and_publish_0x020D(const std::vector<uint8_t>& payload);
     void _parse_and_publish_0x020E(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0301(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0302(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0303(const std::vector<uint8_t>& payload);
     void _parse_and_publish_0x0304(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0305(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0306(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0307(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0308(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0309(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0310(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0F01(const std::vector<uint8_t>& payload);
+    void _parse_and_publish_0x0F02(const std::vector<uint8_t>& payload);
 
     /**
      * @brief 发布通用消息 - 用于可变长或未知消息类型
