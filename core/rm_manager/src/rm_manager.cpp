@@ -245,7 +245,7 @@ void RMManagerNode::_read_callback(const std::vector<uint8_t>& data, std::atomic
         // 取出crc16
         uint16_t received_crc = *(uint16_t*)(data.data() + start_ptr + sizeof(FrameHeader) + 2 + data_length);
         if(Get_CRC16_Check_Sum(data.data() + start_ptr, work_load-2 ) != received_crc){
-            RCLCPP_WARN(this->get_logger(), "CRC16 check failed!");
+            RCLCPP_WARN(this->get_logger(), "CRC16 check failed!"); 
             start_ptr += work_load;
             continue;
         }

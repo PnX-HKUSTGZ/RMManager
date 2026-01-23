@@ -106,7 +106,7 @@ void RemoteController::cmdVelCallback(const rm_message::msg::RemoteControl::Shar
     updateButtonStates(msg);
 
     // 输出 button_toggled_[keyboard_remote_control_exchange_button_] 状态
-    RCLCPP_INFO(this->get_logger(), "Button toggled state for keyboard_remote_control_exchange_button_: %s",
+    RCLCPP_DEBUG(this->get_logger(), "Button toggled state for keyboard_remote_control_exchange_button_: %s",
                 button_toggled_[keyboard_remote_control_exchange_button_] ? "true" : "false");
 
     if(button_toggled_[keyboard_remote_control_exchange_button_]) {
@@ -153,10 +153,6 @@ void RemoteController::sendVel(const rm_message::msg::RemoteControl::SharedPtr m
     last_x_ = twist_msg.twist.linear.x;
     last_y_ = twist_msg.twist.linear.y;
     last_z_ = twist_msg.twist.angular.z;
-
-    if (button_toggled_[REMOTE_CONTROL_BUTTON::KEYB]) {
-        return;
-    }
 
     cmd_vel_pub_->publish(twist_msg);
     RCLCPP_DEBUG(this->get_logger(), "Published cmd_vel: linear.x=%.3f, angular.z=%.3f", twist_msg.twist.linear.x, twist_msg.twist.angular.z);
