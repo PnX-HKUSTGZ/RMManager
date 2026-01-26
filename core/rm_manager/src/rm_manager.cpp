@@ -19,6 +19,8 @@ RMManagerNode::RMManagerNode(std::string name) : Node(name) {
         // 创建遥控器数据发布者
         remoto_control_pub_ = this->create_publisher<rm_message::msg::RemoteControl>(std::string(this->get_name()) + "/remote_control", 10);
 
+        debugger_pub_ = this->create_publisher<rm_message::msg::GeneralMessage>(std::string(this->get_name()) + "/all_receive_data", 10);
+
         // 初始化消息发布管理器
         msg_publisher_ = std::make_unique<MsgPublisher>(this);
 
@@ -197,6 +199,14 @@ void RMManagerNode::_read_callback(const std::vector<uint8_t>& data, std::atomic
 
     // 当前处理的待处理的数据起始位置
     std::size_t start_ptr = 0;
+
+    // debugger 发布原始数据
+    rm_message::msg::GeneralMessage debug_msg;
+    debug_msg.cmd_id = 0xFFFF; // 特殊cmd_id表示原始数据
+    debug_msg.data_length = data.size();
+    debug_msg.data_payload = data;
+
+    debugger_pub_->publish(debug_msg);
 
     while(data.size() > start_ptr){
 

@@ -111,6 +111,10 @@ private:
     // 接受数据的sub
     std::shared_ptr<rclcpp::Subscription<rm_message::msg::SendMessage>> send_sub_;
 
+    // debugger publisher - 用于调试目的，发布所有串口收到的原始数据
+    std::shared_ptr<rclcpp::Publisher<rm_message::msg::GeneralMessage>> debugger_pub_;
+
+
     /**
      * @brief 处理接受到的数据
      * 
