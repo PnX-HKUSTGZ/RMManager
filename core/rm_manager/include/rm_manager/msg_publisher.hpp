@@ -101,6 +101,7 @@ struct DartInfoData {
     uint8_t target_type : 3;         // bit 0-2
     uint8_t hit_count : 3;           // bit 3-5
     uint8_t selected_target : 2;     // bit 6-7
+    uint8_t reserved;
 } __attribute__((packed));
 
 // 0x0201 - Robot Status (13 bytes)
@@ -141,15 +142,8 @@ struct RobotBuffsData {
     uint16_t cooling_buff;
     uint8_t defense_buff;
     uint8_t negative_defense_buff;
-    uint8_t attack_buff;
-    uint8_t energy_125 : 1;          // bit 0
-    uint8_t energy_100 : 1;          // bit 1
-    uint8_t energy_50 : 1;           // bit 2
-    uint8_t energy_30 : 1;           // bit 3
-    uint8_t energy_15 : 1;           // bit 4
-    uint8_t energy_5 : 1;            // bit 5
-    uint8_t energy_1 : 1;            // bit 6
-    uint8_t reserved : 1;            // bit 7
+    uint16_t attack_buff;
+    uint8_t energy_flags; // bit0-5 energy thresholds, bit6 reserved, bit7 reserved
 } __attribute__((packed));
 
 // 0x0206 - Hurt Event (1 byte)
@@ -237,10 +231,35 @@ struct CustomControllerData {
 struct MapDownlinkData {
     float target_x;
     float target_y;
-    uint8_t key_value;
-    uint8_t enemy_id;
+    uint8_t cmd_keyboard;
+    uint8_t target_robot_id;
     uint16_t source_id;
-    uint8_t reserved;
+} __attribute__((packed));
+
+// 0x0304 - Ref Remote Control (12 bytes)
+struct RefRemoteControlData {
+    int16_t mouse_vx;
+    int16_t mouse_vy;
+    int16_t wheel_speed;
+    uint8_t left_button;
+    uint8_t right_button;
+    uint8_t w : 1;              // bit 0 // wsad shift ctrl q e r f g z x c v b
+    uint8_t s : 1;              // bit 1
+    uint8_t a : 1;              // bit 2
+    uint8_t d : 1;              // bit 3
+    uint8_t shift : 1;          // bit 4
+    uint8_t ctrl : 1;           // bit 5
+    uint8_t q : 1;              // bit 6
+    uint8_t e : 1;              // bit 7
+    uint8_t r : 1;              // bit 0 of second byte
+    uint8_t f : 1;              // bit 1
+    uint8_t g : 1;              // bit 2
+    uint8_t z : 1;              // bit 3
+    uint8_t x : 1;              // bit 4
+    uint8_t c : 1;              // bit 5
+    uint8_t v : 1;              // bit 6
+    uint8_t b : 1;              // bit 7 of second byte
+    uint16_t reserved;
 } __attribute__((packed));
 
 // 0x0305 - Radar Map Uplink (24 bytes)
@@ -272,10 +291,11 @@ struct KeyMouseSimulationData {
 // 0x0307 - Path Uplink (103 bytes)
 struct PathUplinkData {
     uint8_t intention;
-    float start_x;
-    float start_y;
+    uint16_t start_x;
+    uint16_t start_y;
     uint8_t delta_x[49];
     uint8_t delta_y[49];
+    uint16_t sender_id;
 } __attribute__((packed));
 
 // 0x0308 - Custom String (34 bytes)
@@ -462,8 +482,18 @@ private:
      * @return true 如果大小符合
      */
     bool _validate_payload_size(size_t expected_size, size_t actual_size, uint16_t cmd_id);
+
+    template<typename T>
+    bool load_struct(uint16_t cmd_id, const std::vector<uint8_t>& payload, T& out);
 };
 
 } // namespace RMManager
+
+template<typename T>
+bool RMManager::MsgPublisher::load_struct(uint16_t cmd_id, const std::vector<uint8_t>& payload, T& out) {
+    if (!_validate_payload_size(sizeof(T), payload.size(), cmd_id)) return false;
+    std::memcpy(&out, payload.data(), sizeof(T));
+    return true;
+}
 
 #endif // MSG_PUBLISHER_HPP

@@ -3,6 +3,11 @@
 
 namespace RMManager {
 
+// 定义数据包的最小长度
+const uint32_t PACKAGE_MIN_LENGTH = 5;
+const uint32_t GENERAL_MESSAGE_HEADER = 0xA5;
+const uint32_t IMAGE_OWN_MESSAGE_LENGTH = 21;
+const uint32_t IMAGE_OWN_MESSAGE_HEADER[2] = {0xA9, 0x53};
 
 RMManagerNode::RMManagerNode(std::string name) : Node(name) {
     // 初始化串口对象
@@ -212,20 +217,27 @@ void RMManagerNode::_read_callback(const std::vector<uint8_t>& data, std::atomic
 
         // 检查前两位是不是 0xA9 0x53
         // 检查有没有帧头
-        if(data.size() - start_ptr < 5){
+        if(data.size() - start_ptr < PACKAGE_MIN_LENGTH){
             return;
         }
 
         // 处理图传的特殊消息
-        if(data[start_ptr] == 0xA9 && data[start_ptr + 1] == 0x53){
-            if(_process_image_own_message(std::vector<uint8_t>(data.begin() + start_ptr, data.begin() + start_ptr + 21))){
+        if(data[start_ptr] == IMAGE_OWN_MESSAGE_HEADER[0] && data[start_ptr + 1] == IMAGE_OWN_MESSAGE_HEADER[1]){
+
+            // 检查帧长度
+            if(data.size() - start_ptr < IMAGE_OWN_MESSAGE_LENGTH){
+                RCLCPP_WARN(this->get_logger(), "Image own message length mismatch! Expected: %d, Actual: %zu", IMAGE_OWN_MESSAGE_LENGTH, data.size() - start_ptr);
+                return;
+            }
+            
+            if(_process_image_own_message(std::vector<uint8_t>(data.begin() + start_ptr, data.begin() + start_ptr + IMAGE_OWN_MESSAGE_LENGTH))){
                 link_status = true;
             }
-            start_ptr += 21;
+            start_ptr += IMAGE_OWN_MESSAGE_LENGTH;
             continue;
         }
 
-        if(data[start_ptr] != 0xA5){
+        if(data[start_ptr] != GENERAL_MESSAGE_HEADER){
             return;
         }
 

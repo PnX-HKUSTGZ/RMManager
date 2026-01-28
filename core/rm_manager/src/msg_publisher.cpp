@@ -1,4 +1,5 @@
 #include "rm_manager/msg_publisher.hpp"
+#include <algorithm>
 
 namespace RMManager {
 
@@ -108,10 +109,8 @@ bool MsgPublisher::_validate_payload_size(size_t expected_size, size_t actual_si
 // ============================================================
 
 void MsgPublisher::_parse_and_publish_0x0001(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(GameStateData), payload.size(), 0x0001)) return;
-
-    GameStateData data = {};
-    std::memcpy(&data, payload.data(), sizeof(GameStateData));
+    GameStateData data{};
+    if (!load_struct(0x0001, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::GameState>();
     msg->game_type = data.game_type;
@@ -123,10 +122,8 @@ void MsgPublisher::_parse_and_publish_0x0001(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0002(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(GameResultData), payload.size(), 0x0002)) return;
-
-    GameResultData data = {};
-    std::memcpy(&data, payload.data(), sizeof(GameResultData));
+    GameResultData data{};
+    if (!load_struct(0x0002, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::GameResult>();
     msg->result = data.result;
@@ -135,10 +132,8 @@ void MsgPublisher::_parse_and_publish_0x0002(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0003(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(RobotHPData), payload.size(), 0x0003)) return;
-
-    RobotHPData data = {};
-    std::memcpy(&data, payload.data(), sizeof(RobotHPData));
+    RobotHPData data{};
+    if (!load_struct(0x0003, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RobotHP>();
     msg->hp_hero = data.hp_hero;
@@ -158,10 +153,8 @@ void MsgPublisher::_parse_and_publish_0x0003(const std::vector<uint8_t>& payload
 // ============================================================
 
 void MsgPublisher::_parse_and_publish_0x0101(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(FieldEventsData), payload.size(), 0x0101)) return;
-
-    FieldEventsData data = {};
-    std::memcpy(&data, payload.data(), sizeof(FieldEventsData));
+    FieldEventsData data{};
+    if (!load_struct(0x0101, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::FieldEvents>();
     // 直接从位字段赋值
@@ -183,10 +176,8 @@ void MsgPublisher::_parse_and_publish_0x0101(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0104(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(RefereeWarningData), payload.size(), 0x0104)) return;
-
-    RefereeWarningData data = {};
-    std::memcpy(&data, payload.data(), sizeof(RefereeWarningData));
+    RefereeWarningData data{};
+    if (!load_struct(0x0104, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RefereeWarning>();
     msg->penalty_level = data.penalty_level;
@@ -197,13 +188,14 @@ void MsgPublisher::_parse_and_publish_0x0104(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0105(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(4, payload.size(), 0x0105)) return;
+    DartInfoData data{};
+    if (!load_struct(0x0105, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::DartInfo>();
-    msg->dart_remaining_time = payload[0];
-    msg->target_type = payload[1] & 0x07;
-    msg->hit_count = (payload[1] >> 3) & 0x07;
-    msg->selected_target = (payload[2] >> 6) & 0x03;
+    msg->dart_remaining_time = data.dart_remaining_time;
+    msg->target_type = data.target_type;
+    msg->hit_count = data.hit_count;
+    msg->selected_target = data.selected_target;
 
     pub_0x0105_->publish(std::move(msg));
 }
@@ -213,10 +205,8 @@ void MsgPublisher::_parse_and_publish_0x0105(const std::vector<uint8_t>& payload
 // ============================================================
 
 void MsgPublisher::_parse_and_publish_0x0201(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(RobotStatusData), payload.size(), 0x0201)) return;
-
-    RobotStatusData data = {};
-    std::memcpy(&data, payload.data(), sizeof(RobotStatusData));
+    RobotStatusData data{};
+    if (!load_struct(0x0201, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RobotStatus>();
     msg->robot_id = data.robot_id;
@@ -248,10 +238,8 @@ void MsgPublisher::_parse_and_publish_0x0202(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0203(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(RobotPositionData), payload.size(), 0x0203)) return;
-
-    RobotPositionData data = {};
-    std::memcpy(&data, payload.data(), sizeof(RobotPositionData));
+    RobotPositionData data{};
+    if (!load_struct(0x0203, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RobotPosition>();
     msg->x = data.x;
@@ -262,30 +250,29 @@ void MsgPublisher::_parse_and_publish_0x0203(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0204(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(12, payload.size(), 0x0204)) return;
+    RobotBuffsData data{};
+    if (!load_struct(0x0204, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RobotBuffs>();
-    msg->hp_buff = payload[0];
-    msg->cooling_buff = *reinterpret_cast<const uint16_t*>(&payload[1]);
-    msg->defense_buff = payload[3];
-    msg->negative_defense_buff = payload[4];
-    msg->attack_buff = payload[5];
-    msg->energy_125 = (payload[6] >> 0) & 0x01;
-    msg->energy_100 = (payload[6] >> 1) & 0x01;
-    msg->energy_50 = (payload[6] >> 2) & 0x01;
-    msg->energy_30 = (payload[6] >> 3) & 0x01;
-    msg->energy_15 = (payload[6] >> 4) & 0x01;
-    msg->energy_5 = (payload[6] >> 5) & 0x01;
-    msg->energy_1 = (payload[6] >> 6) & 0x01;
+    msg->hp_buff = data.hp_buff;
+    msg->cooling_buff = data.cooling_buff;
+    msg->defense_buff = data.defense_buff;
+    msg->negative_defense_buff = data.negative_defense_buff;
+    msg->attack_buff = data.attack_buff;
+    msg->energy_125 = (data.energy_flags >> 0) & 0x01;
+    msg->energy_100 = (data.energy_flags >> 1) & 0x01;
+    msg->energy_50 = (data.energy_flags >> 2) & 0x01;
+    msg->energy_30 = (data.energy_flags >> 3) & 0x01;
+    msg->energy_15 = (data.energy_flags >> 4) & 0x01;
+    msg->energy_5 = (data.energy_flags >> 5) & 0x01;
+    msg->energy_1 = (data.energy_flags >> 6) & 0x01;
 
     pub_0x0204_->publish(std::move(msg));
 }
 
 void MsgPublisher::_parse_and_publish_0x0206(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(HurtEventData), payload.size(), 0x0206)) return;
-
-    HurtEventData data = {};
-    std::memcpy(&data, payload.data(), sizeof(HurtEventData));
+    HurtEventData data{};
+    if (!load_struct(0x0206, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::HurtEvent>();
     msg->armor_id = data.armor_id;
@@ -295,10 +282,8 @@ void MsgPublisher::_parse_and_publish_0x0206(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0207(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(ShootDataData), payload.size(), 0x0207)) return;
-
-    ShootDataData data = {};
-    std::memcpy(&data, payload.data(), sizeof(ShootDataData));
+    ShootDataData data{};
+    if (!load_struct(0x0207, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::ShootData>();
     msg->ammo_type = (data.ammo_type_17mm << 1) | (data.ammo_type_42mm << 2);
@@ -310,10 +295,8 @@ void MsgPublisher::_parse_and_publish_0x0207(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0208(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(AmmoAllowanceData), payload.size(), 0x0208)) return;
-
-    AmmoAllowanceData data = {};
-    std::memcpy(&data, payload.data(), sizeof(AmmoAllowanceData));
+    AmmoAllowanceData data{};
+    if (!load_struct(0x0208, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::AmmoAllowance>();
     msg->ammo_17mm = data.ammo_17mm;
@@ -325,10 +308,8 @@ void MsgPublisher::_parse_and_publish_0x0208(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0209(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(RFIDStatusData), payload.size(), 0x0209)) return;
-
-    RFIDStatusData data = {};
-    std::memcpy(&data, payload.data(), sizeof(RFIDStatusData));
+    RFIDStatusData data{};
+    if (!load_struct(0x0209, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RFIDStatus>();
     
@@ -384,10 +365,8 @@ void MsgPublisher::_parse_and_publish_0x0209(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x020A(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(DartCmdData), payload.size(), 0x020A)) return;
-
-    DartCmdData data = {};
-    std::memcpy(&data, payload.data(), sizeof(DartCmdData));
+    DartCmdData data{};
+    if (!load_struct(0x020A, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::DartCmd>();
     msg->dart_station_status = data.dart_station_status;
@@ -399,10 +378,8 @@ void MsgPublisher::_parse_and_publish_0x020A(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x020B(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(GroundPositionsData), payload.size(), 0x020B)) return;
-
-    GroundPositionsData data = {};
-    std::memcpy(&data, payload.data(), sizeof(GroundPositionsData));
+    GroundPositionsData data{};
+    if (!load_struct(0x020B, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::GroundPositions>();
     msg->hero_x = data.hero_x;
@@ -420,10 +397,8 @@ void MsgPublisher::_parse_and_publish_0x020B(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x020C(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(RadarMarkData), payload.size(), 0x020C)) return;
-
-    RadarMarkData data = {};
-    std::memcpy(&data, payload.data(), sizeof(RadarMarkData));
+    RadarMarkData data{};
+    if (!load_struct(0x020C, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RadarMark>();
     
@@ -443,10 +418,8 @@ void MsgPublisher::_parse_and_publish_0x020C(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x020D(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(6, payload.size(), 0x020D)) return;
-
-    SentryDecisionData data = {};
-    std::memcpy(&data, payload.data(), sizeof(SentryDecisionData));
+    SentryDecisionData data{};
+    if (!load_struct(0x020D, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::SentryDecision>();
     
@@ -466,10 +439,8 @@ void MsgPublisher::_parse_and_publish_0x020D(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x020E(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(sizeof(RadarDecisionData), payload.size(), 0x020E)) return;
-
-    RadarDecisionData data = {};
-    std::memcpy(&data, payload.data(), sizeof(RadarDecisionData));
+    RadarDecisionData data{};
+    if (!load_struct(0x020E, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RadarDecision>();
     msg->double_vulnerable_count = (data.radar_info >> 0) & 0x03;  // bit 0-1 (2位)
@@ -485,18 +456,19 @@ void MsgPublisher::_parse_and_publish_0x020E(const std::vector<uint8_t>& payload
 // ============================================================
 
 void MsgPublisher::_parse_and_publish_0x0304(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(12, payload.size(), 0x0304)) return;
+    RefRemoteControlData data{};
+    if (!load_struct(0x0304, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RefRemoteControl>();
-    msg->mouse_vx = *reinterpret_cast<const int16_t*>(&payload[0]);
-    msg->mouse_vy = *reinterpret_cast<const int16_t*>(&payload[2]);
-    msg->wheel_speed = *reinterpret_cast<const int16_t*>(&payload[4]);
-    msg->left_button = payload[6];
-    msg->right_button = payload[7];
-    msg->w = payload[8];
-    msg->s = payload[9];
-    msg->a = payload[10];
-    msg->d = payload[11];
+    msg->mouse_vx = data.mouse_vx;
+    msg->mouse_vy = data.mouse_vy;
+    msg->wheel_speed = data.wheel_speed;
+    msg->left_button = data.left_button;
+    msg->right_button = data.right_button;
+    msg->w = data.w;
+    msg->s = data.s;
+    msg->a = data.a;
+    msg->d = data.d;
 
     pub_0x0304_->publish(std::move(msg));
 }
@@ -526,100 +498,108 @@ void MsgPublisher::_parse_and_publish_0x0301(const std::vector<uint8_t>& payload
 }
 
 void MsgPublisher::_parse_and_publish_0x0302(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(30, payload.size(), 0x0302)) return;
+    CustomControllerData data{};
+    if (!load_struct(0x0302, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::CustomController>();
-    std::copy(payload.begin(), payload.end(), msg->data.begin());
+    std::copy(std::begin(data.data), std::end(data.data), msg->data.begin());
 
     pub_0x0302_->publish(std::move(msg));
 }
 
 void MsgPublisher::_parse_and_publish_0x0303(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(15, payload.size(), 0x0303)) return;
+    MapDownlinkData data{};
+    if (!load_struct(0x0303, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::MapDownlink>();
-    msg->target_x = *reinterpret_cast<const float*>(&payload[0]);
-    msg->target_y = *reinterpret_cast<const float*>(&payload[4]);
-    msg->key_value = payload[8];
-    msg->enemy_id = payload[9];
-    msg->source_id = *reinterpret_cast<const uint16_t*>(&payload[10]);
+    msg->target_x = data.target_x;
+    msg->target_y = data.target_y;
+    msg->cmd_keyboard = data.cmd_keyboard;
+    msg->target_robot_id = data.target_robot_id;
+    msg->source_id = data.source_id;
 
     pub_0x0303_->publish(std::move(msg));
 }
 
 void MsgPublisher::_parse_and_publish_0x0305(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(24, payload.size(), 0x0305)) return;
+    RadarMapUplinkData data{};
+    if (!load_struct(0x0305, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RadarMapUplink>();
-    msg->hero_x = *reinterpret_cast<const uint16_t*>(&payload[0]);
-    msg->hero_y = *reinterpret_cast<const uint16_t*>(&payload[2]);
-    msg->engineer_x = *reinterpret_cast<const uint16_t*>(&payload[4]);
-    msg->engineer_y = *reinterpret_cast<const uint16_t*>(&payload[6]);
-    msg->infantry3_x = *reinterpret_cast<const uint16_t*>(&payload[8]);
-    msg->infantry3_y = *reinterpret_cast<const uint16_t*>(&payload[10]);
-    msg->infantry4_x = *reinterpret_cast<const uint16_t*>(&payload[12]);
-    msg->infantry4_y = *reinterpret_cast<const uint16_t*>(&payload[14]);
-    msg->infantry5_x = *reinterpret_cast<const uint16_t*>(&payload[16]);
-    msg->infantry5_y = *reinterpret_cast<const uint16_t*>(&payload[18]);
-    msg->sentry_x = *reinterpret_cast<const uint16_t*>(&payload[20]);
-    msg->sentry_y = *reinterpret_cast<const uint16_t*>(&payload[22]);
+    msg->hero_x = data.hero_x;
+    msg->hero_y = data.hero_y;
+    msg->engineer_x = data.engineer_x;
+    msg->engineer_y = data.engineer_y;
+    msg->infantry3_x = data.infantry3_x;
+    msg->infantry3_y = data.infantry3_y;
+    msg->infantry4_x = data.infantry4_x;
+    msg->infantry4_y = data.infantry4_y;
+    msg->infantry5_x = data.infantry5_x;
+    msg->infantry5_y = data.infantry5_y;
+    msg->sentry_x = data.sentry_x;
+    msg->sentry_y = data.sentry_y;
 
     pub_0x0305_->publish(std::move(msg));
 }
 
 void MsgPublisher::_parse_and_publish_0x0306(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(8, payload.size(), 0x0306)) return;
+    KeyMouseSimulationData data{};
+    if (!load_struct(0x0306, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::KeyMouseSimulation>();
-    msg->key1 = payload[0];
-    msg->key2 = payload[1];
-    msg->mouse_x = *reinterpret_cast<const uint16_t*>(&payload[2]);
-    msg->left_button = payload[4];
-    msg->mouse_y = *reinterpret_cast<const uint16_t*>(&payload[5]);
-    msg->right_button = payload[7];
+    msg->key1 = data.key1;
+    msg->key2 = data.key2;
+    msg->mouse_x = data.mouse_x;
+    msg->left_button = data.left_button;
+    msg->mouse_y = data.mouse_y;
+    msg->right_button = data.right_button;
 
     pub_0x0306_->publish(std::move(msg));
 }
 
 void MsgPublisher::_parse_and_publish_0x0307(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(103, payload.size(), 0x0307)) return;
+    PathUplinkData data{};
+    if (!load_struct(0x0307, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::PathUplink>();
-    msg->intention = payload[0];
-    msg->start_x = *reinterpret_cast<const float*>(&payload[1]);
-    msg->start_y = *reinterpret_cast<const float*>(&payload[5]);
+    msg->intention = data.intention;
+    msg->start_x = data.start_x;
+    msg->start_y = data.start_y;
+    std::copy(std::begin(data.delta_x), std::end(data.delta_x), msg->delta_x.begin());
+    std::copy(std::begin(data.delta_y), std::end(data.delta_y), msg->delta_y.begin());
+    msg->sender_id = data.sender_id;
     
-    std::copy(payload.begin() + 9, payload.begin() + 58, msg->delta_x.begin());
-    std::copy(payload.begin() + 58, payload.begin() + 107, msg->delta_y.begin());
-
     pub_0x0307_->publish(std::move(msg));
 }
 
 void MsgPublisher::_parse_and_publish_0x0308(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(34, payload.size(), 0x0308)) return;
+    CustomStringData data{};
+    if (!load_struct(0x0308, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::CustomString>();
-    msg->sender_id = *reinterpret_cast<const uint16_t*>(&payload[0]);
-    msg->receiver_id = *reinterpret_cast<const uint16_t*>(&payload[2]);
-    std::copy(payload.begin() + 4, payload.end(), msg->content.begin());
+    msg->sender_id = data.sender_id;
+    msg->receiver_id = data.receiver_id;
+    std::copy(std::begin(data.content), std::end(data.content), msg->content.begin());
 
     pub_0x0308_->publish(std::move(msg));
 }
 
 void MsgPublisher::_parse_and_publish_0x0309(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(30, payload.size(), 0x0309)) return;
+    RobotCustomDataData data{};
+    if (!load_struct(0x0309, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RobotCustomData>();
-    std::copy(payload.begin(), payload.end(), msg->data.begin());
+    std::copy(std::begin(data.data), std::end(data.data), msg->data.begin());
 
     pub_0x0309_->publish(std::move(msg));
 }
 
 void MsgPublisher::_parse_and_publish_0x0310(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(150, payload.size(), 0x0310)) return;
+    RobotCustomDataLargeData data{};
+    if (!load_struct(0x0310, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::RobotCustomDataLarge>();
-    std::copy(payload.begin(), payload.end(), msg->data.begin());
+    std::copy(std::begin(data.data), std::end(data.data), msg->data.begin());
 
     pub_0x0310_->publish(std::move(msg));
 }
@@ -629,19 +609,21 @@ void MsgPublisher::_parse_and_publish_0x0310(const std::vector<uint8_t>& payload
 // ============================================================
 
 void MsgPublisher::_parse_and_publish_0x0F01(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(1, payload.size(), 0x0F01)) return;
+    SetVTMChannelData data{};
+    if (!load_struct(0x0F01, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::SetVTMChannel>();
-    msg->channel = payload[0];
+    msg->channel = data.channel;
 
     pub_0x0F01_->publish(std::move(msg));
 }
 
 void MsgPublisher::_parse_and_publish_0x0F02(const std::vector<uint8_t>& payload) {
-    if (!_validate_payload_size(1, payload.size(), 0x0F02)) return;
+    QueryVTMChannelData data{};
+    if (!load_struct(0x0F02, payload, data)) return;
 
     auto msg = std::make_unique<rm_message::msg::QueryVTMChannel>();
-    msg->channel = payload[0];
+    msg->channel = data.channel;
 
     pub_0x0F02_->publish(std::move(msg));
 }

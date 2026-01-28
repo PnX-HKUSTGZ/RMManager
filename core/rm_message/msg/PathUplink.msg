@@ -11,3 +11,5 @@ float32 start_y
 uint8[49] delta_x
 # Y轴增量数组 (49字节)
 uint8[49] delta_y
+# 发送者ID
+uint16 sender_id

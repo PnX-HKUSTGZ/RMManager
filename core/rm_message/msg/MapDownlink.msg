@@ -6,8 +6,8 @@ float32 target_x
 # 目标Y (float)
 float32 target_y
 # 键值
-uint8 key_value
+uint8 cmd_keyboard
 # 对方ID
-uint8 enemy_id
+uint8 target_robot_id
 # 来源ID
 uint16 source_id
