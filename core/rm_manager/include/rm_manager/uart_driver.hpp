@@ -157,6 +157,7 @@ public:
      * 4. 设置错误状态标志
      */
     bool openPort() {
+        shutting_down_.store(false); // 允许新的读写
         if (serial_port_.is_open()) {
             std::cerr << "Serial port is already open." << std::endl;
             return false;
@@ -307,6 +308,10 @@ public:
      * - 函数立即返回，不会阻塞等待发送完成
      */
     void writeData(const std::vector<uint8_t>& data) {
+        if (shutting_down_.load()) {
+            std::cerr << "Cannot write: Serial communicator is shutting down." << std::endl;
+            return;
+        }
         if (!isPortOK()) {
             std::cerr << "Cannot write: Serial port not open or in bad state." << std::endl;
             return;
@@ -337,6 +342,7 @@ private:
     std::string port_name_;
     unsigned int baud_rate_;
     std::atomic<bool> error_occurred_{false}; // 用于跟踪串口是否遇到错误
+    std::atomic<bool> shutting_down_{false};  // 正在关闭/重连时阻止新的写入
 
     /**
      * @brief 停止所有读写活动并清空队列
@@ -349,6 +355,7 @@ private:
      * 通常在关闭串口或析构时调用，确保所有异步操作被正确清理。
      */
     void stopAllActivity() {
+        shutting_down_.store(true); // 防止新的写入加入队列
         stopRead(); // 取消异步读取
 
         { // 锁住写入队列，清空并重置状态
@@ -424,6 +431,9 @@ private:
      * 注意：此函数仅供内部调用，不应直接从外部调用。
      */
     void _do_write_next_message() {
+        if (shutting_down_.load()) {
+            return;
+        }
         // 只有当端口打开且没有错误时才尝试写入
         if (!isPortOK()) {
             std::cerr << "Internal: Skipping write start as port is not OK." << std::endl;
@@ -466,25 +476,29 @@ private:
      */
     void _handle_write(const boost::system::error_code& error, size_t bytes_transferred,
                       std::shared_ptr<std::vector<uint8_t>> message_holder) {
-        std::lock_guard<std::mutex> lock(write_queue_mutex_);
-        write_in_progress_ = false;
-
         (void)bytes_transferred;
         (void)message_holder;
 
-        if (!error) {
-            // std::cout << "Sent " << bytes_transferred << " bytes." << std::endl;
-            write_queue_.pop_front();
-        } else {
+        {
+            std::lock_guard<std::mutex> lock(write_queue_mutex_);
+            write_in_progress_ = false;
+            if (!write_queue_.empty()) {
+                write_queue_.pop_front();
+            }
+        }
+
+        if (error) {
             if (error == boost::asio::error::operation_aborted) {
-                // std::cerr << "Write operation aborted (port closed or stopped)." << std::endl;
+                // 已被取消，通常发生在关闭/重连时
             } else {
                 std::cerr << "Error during write: " << error.message() << std::endl;
                 error_occurred_.store(true); // 标记错误
             }
-            write_queue_.pop_front();
         }
-        _do_write_next_message(); // 尝试发送队列中的下一个消息
+
+        if (!shutting_down_.load()) {
+            _do_write_next_message(); // 尝试发送队列中的下一个消息
+        }
     }
 };
 
