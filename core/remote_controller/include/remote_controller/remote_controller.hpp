@@ -159,7 +159,14 @@ private:
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr chasis_enable_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr arm_enable_pub_;
 
+    // Watchdog timer
+    rclcpp::TimerBase::SharedPtr watchdog_timer_;
+    rclcpp::Time last_message_time_;
+    bool watchdog_triggered_ = false;
+
     void cmdVelCallback(const rm_message::msg::RemoteControl::SharedPtr msg);
+
+    void watchdogCallback();
 
     void sendVel(const rm_message::msg::RemoteControl::SharedPtr msg);
 

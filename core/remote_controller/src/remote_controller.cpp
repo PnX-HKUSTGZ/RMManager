@@ -21,6 +21,8 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
     RCLCPP_INFO(this->get_logger(), "  delta_z: %.2f", params_->delta_z);
     RCLCPP_INFO(this->get_logger(), "  target_bottons size: %zu", params_->target_bottons.size());
     RCLCPP_INFO(this->get_logger(), "  keyboard_remote_control_exchange_key: %s", params_->keyboard_remote_control_exchange_key.c_str());
+    RCLCPP_INFO(this->get_logger(), "  watchdog_timeout: %.2f", params_->watchdog_timeout);
+    RCLCPP_INFO(this->get_logger(), "  watchdog_enabled: %s", params_->watchdog_enabled ? "true" : "false");
 
     // config button actions
     
@@ -96,6 +98,19 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
 
     last_time_ = this->now();
 
+    // Initialize watchdog timer
+    last_message_time_ = this->now();
+    watchdog_triggered_ = false;
+    
+    // Create watchdog timer (check every 100ms)
+    if (params_->watchdog_enabled) {
+        watchdog_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(100),
+            std::bind(&RemoteController::watchdogCallback, this)
+        );
+        RCLCPP_INFO(this->get_logger(), "Watchdog timer initialized with timeout: %.2f seconds", params_->watchdog_timeout);
+    }
+
     RCLCPP_INFO(this->get_logger(), "RemoteController node initialized. Subscribing to %s, publishing to %s", 
                 params_->remote_controller_topic.c_str(), params_->cmd_vel_topic.c_str());
 }
@@ -103,6 +118,15 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
 RemoteController::~RemoteController() {}
 
 void RemoteController::cmdVelCallback(const rm_message::msg::RemoteControl::SharedPtr msg) {
+    // Update watchdog timer
+    last_message_time_ = this->now();
+    
+    // Check if recovering from watchdog timeout
+    if (watchdog_triggered_) {
+        RCLCPP_INFO(this->get_logger(), "Remote control signal recovered. Resuming normal operation.");
+        watchdog_triggered_ = false;
+    }
+    
     updateButtonStates(msg);
 
     // 输出 button_toggled_[keyboard_remote_control_exchange_button_] 状态
@@ -336,6 +360,43 @@ void ButtonAction::execute(const std::vector<REMOTE_CONTROL_ACTION_TYPE>& trigge
         auto msg = std_msgs::msg::Bool();
         msg.data = content_;
         publisher_->publish(msg);
+    }
+}
+
+void RemoteController::watchdogCallback() {
+    if (!params_->watchdog_enabled) {
+        return;
+    }
+    
+    rclcpp::Time current_time = this->now();
+    double time_since_last_msg = (current_time - last_message_time_).seconds();
+    
+    if (time_since_last_msg > params_->watchdog_timeout && !watchdog_triggered_) {
+        RCLCPP_WARN(this->get_logger(), 
+                    "Watchdog timeout! No remote control message received for %.2f seconds. Sending disable signals.",
+                    time_since_last_msg);
+        
+        // Send disable signals
+        auto disable_msg = std_msgs::msg::Bool();
+        disable_msg.data = false;
+        chasis_enable_pub_->publish(disable_msg);
+        arm_enable_pub_->publish(disable_msg);
+        
+        // Send zero velocity
+        auto zero_twist = geometry_msgs::msg::TwistStamped();
+        zero_twist.header.stamp = current_time;
+        zero_twist.header.frame_id = "base_link";
+        zero_twist.twist.linear.x = 0.0;
+        zero_twist.twist.linear.y = 0.0;
+        zero_twist.twist.angular.z = 0.0;
+        cmd_vel_pub_->publish(zero_twist);
+        
+        // Reset velocity tracking
+        last_x_ = 0.0;
+        last_y_ = 0.0;
+        last_z_ = 0.0;
+        
+        watchdog_triggered_ = true;
     }
 }
 

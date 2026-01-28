@@ -40,10 +40,20 @@ RMManagerNode::RMManagerNode(std::string name) : Node(name) {
         if(image_port != "" && image_port != "None"){
             image_uart_ = std::make_shared<SerialCommunicator>(image_port, 921600);
             image_uart_->register_read_callback( std::bind(&RMManagerNode::_read_callback, this, std::placeholders::_1, std::ref(image_send_)) );
+            if (!image_uart_->openPort()){
+                RCLCPP_ERROR(this->get_logger(), "Failed to open image port: %s", image_port.c_str());
+            } else {
+                RCLCPP_INFO(this->get_logger(), "Image port opened: %s", image_port.c_str());
+            }
         }
         if(referee_port != "" && referee_port != "None" ){
             referee_uart_ = std::make_shared<SerialCommunicator>(referee_port, 115200);
             referee_uart_->register_read_callback( std::bind(&RMManagerNode::_read_callback, this, std::placeholders::_1, std::ref(referee_send_)) );
+            if (!referee_uart_->openPort()){
+                RCLCPP_ERROR(this->get_logger(), "Failed to open referee port: %s", referee_port.c_str());
+            } else {
+                RCLCPP_INFO(this->get_logger(), "Referee port opened: %s", referee_port.c_str());
+            }
         }
     }
     catch(const std::exception& e){
@@ -344,7 +354,8 @@ void RMManagerNode::_send_sub_callback(const rm_message::msg::SendMessage::Share
     std::vector<uint8_t> frame;
     FrameHeader header = {};
     header.sof = 0xA5;
-    header.data_length = msg->data_length;
+    // data_length 应与实际 payload 长度保持一致，防止接收端按错误长度校验 CRC
+    header.data_length = msg->data_payload.size();
     header.seq = 0;
     header.crc8 = Get_CRC8_Check_Sum((uint8_t*)&header, sizeof(FrameHeader)-1);
 
@@ -358,7 +369,8 @@ void RMManagerNode::_send_sub_callback(const rm_message::msg::SendMessage::Share
     frame.insert(frame.end(), msg->data_payload.begin(), msg->data_payload.end());
 
     // 处理crc16
-    uint16_t crc16 = Get_CRC16_Check_Sum(msg->data_payload.data(), msg->data_payload.size());
+    // CRC16 应覆盖帧头 + cmd_id + payload，保持与接收端一致
+    uint16_t crc16 = Get_CRC16_Check_Sum(frame.data(), frame.size());
     frame.push_back(crc16 & 0xFF);
     frame.push_back((crc16 >> 8) & 0xFF);
 

@@ -178,3 +178,17 @@ remote_controller:
     default_value: []
     read_only: true
     description: "List of content to publish when the button action is ON"
+
+  watchdog_timeout:
+    type: double
+    default_value: 1.0
+    description: "Watchdog timeout in seconds. If no remote control message is received within this time, disable signal will be sent"
+    read_only: false
+    validation:
+      bounds<>: [0.1, 10.0]
+
+  watchdog_enabled:
+    type: bool
+    default_value: true
+    description: "Enable or disable the watchdog timer"
+    read_only: false
