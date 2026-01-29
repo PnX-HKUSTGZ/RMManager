@@ -3,7 +3,7 @@ rm_custom_controller_state:
 
     left_arm_state_topic: "/left_custom_controller/joint_states"
 
-    right_arm_state_topic: "/custom_controller/joint_states"
+    right_arm_state_topic: "/right_custom_controller/joint_states"
 
     left_joint_names:
       - "control_j0"
@@ -22,3 +22,6 @@ rm_custom_controller_state:
       - "control_j5"
 
     ref_topic: /rm_manager/custom_controller
+    
+    # 看门狗超时时间（秒）- 如果在此时间内没有收到命令则发出警报
+    watchdog_timeout: 1.0

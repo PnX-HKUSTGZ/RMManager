@@ -80,6 +80,14 @@ private:
 
     void ref_topic_callback(const rm_message::msg::CustomController::SharedPtr msg);
 
+    // 看门狗相关成员
+    rclcpp::Time last_command_time_;              // 最后一次接收到命令的时间
+    rclcpp::TimerBase::SharedPtr watchdog_timer_; // 看门狗定时器
+    double watchdog_timeout_;                     // 看门狗超时时间（秒）
+    bool watchdog_triggered_;                     // 看门狗是否已触发
+    
+    void watchdog_callback();                     // 看门狗检查回调函数
+
 };
 
 } // namespace rm_custom_controller_state

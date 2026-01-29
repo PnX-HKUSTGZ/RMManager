@@ -24,3 +24,12 @@ rm_custom_controller_state:
     type: string,
     description: "ROS topic for the references system messages.",
   }
+
+  watchdog_timeout: {
+    type: double,
+    default_value: 1.0,
+    description: "Watchdog timeout in seconds. If no command is received within this time, a warning will be issued.",
+    validation: {
+      gt<>: [0.0]
+    }
+  }

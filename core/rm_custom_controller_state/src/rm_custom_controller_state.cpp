@@ -30,6 +30,7 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     left_joint_names = params_.left_joint_names;
     right_joint_names = params_.right_joint_names;
     ref_topic = params_.ref_topic;
+    watchdog_timeout_ = params_.watchdog_timeout;
 
     // 检查 left_joint_names 与 right_joint_names 长度是否为6
     if (left_joint_names.size() != JOINT_NUM) {
@@ -53,6 +54,12 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
         RCLCPP_INFO(this->get_logger(), "  %s", name.c_str());
     }
     RCLCPP_INFO(this->get_logger(), "Ref topic: %s", ref_topic.c_str());
+    RCLCPP_INFO(this->get_logger(), "Watchdog timeout: %.2f seconds", watchdog_timeout_);
+    
+    // 初始化看门狗
+    last_command_time_ = this->now();
+    watchdog_triggered_ = false;
+    
     // 创建发布者
     left_arm_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(left_arm_state_topic, 10);
     right_arm_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(right_arm_state_topic, 10);
@@ -62,6 +69,14 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
         10,
         std::bind(&RmCustomControllerState::ref_topic_callback, this, std::placeholders::_1)
     );
+    
+    // 创建看门狗定时器（每100ms检查一次）
+    watchdog_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(100),
+        std::bind(&RmCustomControllerState::watchdog_callback, this)
+    );
+    
+    RCLCPP_INFO(this->get_logger(), "RmCustomControllerState node initialized with watchdog enabled");
 
 }
 
@@ -70,6 +85,13 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
     if(msg == nullptr) {
         RCLCPP_WARN(this->get_logger(), "Received null message on ref_topic");
         return;
+    }
+    
+    // 更新看门狗时间戳
+    last_command_time_ = this->now();
+    if (watchdog_triggered_) {
+        RCLCPP_INFO(this->get_logger(), "Command received, watchdog reset");
+        watchdog_triggered_ = false;
     }
 
     // 输出 msg
@@ -84,17 +106,17 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
     memcpy(&control_data, msg->data.data(), sizeof(ControlData));
 
     // 输出 control_data
-    // RCLCPP_INFO(this->get_logger(), "Received custom controller data:");
-    // RCLCPP_INFO(this->get_logger(), "  Rotor Angles: ");
-    // for (size_t i = 0; i < 12; ++i) {
-    //     RCLCPP_INFO(this->get_logger(), "    %d", control_data.rotor_angles[i]);
-    // }
-    // RCLCPP_INFO(this->get_logger(), "  Channels: %d, %d, %d, %d",
-    //              control_data.channel_0,
-    //              control_data.channel_1,
-    //              control_data.channel_2,
-    //              control_data.channel_3);
-    // RCLCPP_INFO(this->get_logger(), "  GPIO State: %d", control_data.gpio_state);
+    RCLCPP_DEBUG(this->get_logger(), "Received custom controller data:");
+    RCLCPP_DEBUG(this->get_logger(), "  Rotor Angles: ");
+    for (size_t i = 0; i < 12; ++i) {
+        RCLCPP_DEBUG(this->get_logger(), "    %d", control_data.rotor_angles[i]);
+    }
+    RCLCPP_DEBUG(this->get_logger(), "  Channels: %d, %d, %d, %d",
+                 control_data.channel_0,
+                 control_data.channel_1,
+                 control_data.channel_2,
+                 control_data.channel_3);
+    RCLCPP_DEBUG(this->get_logger(), "  GPIO State: %d", control_data.gpio_state);
 
     // 发布左机械臂关节状态
     auto left_joint_state_msg = std::make_shared<sensor_msgs::msg::JointState>();
@@ -105,6 +127,11 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
     left_joint_state_msg->effort.resize(JOINT_NUM, 0.0);
     for (size_t i = 0; i < JOINT_NUM; ++i) {
         left_joint_state_msg->position[i] = uint_to_float(control_data.rotor_angles[i], POS_MIN, POS_MAX, BITS);
+    }
+    // 输出 left_joint_state_msg
+    RCLCPP_DEBUG(this->get_logger(), "Publishing left arm joint states:");
+    for (size_t i = 0; i < JOINT_NUM; ++i) {
+        RCLCPP_DEBUG(this->get_logger(), "  %s: %.4f", left_joint_names[i].c_str(), left_joint_state_msg->position[i]);
     }
     left_arm_state_pub_->publish(*left_joint_state_msg);
 
@@ -118,10 +145,33 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
     for (size_t i = 0; i < JOINT_NUM; ++i) {
         right_joint_state_msg->position[i] = uint_to_float(control_data.rotor_angles[i + 6], POS_MIN, POS_MAX, BITS);
     }
+    // 输出 right_joint_state_msg
+    RCLCPP_DEBUG(this->get_logger(), "Publishing right arm joint states:");
+    for (size_t i = 0; i < JOINT_NUM; ++i) {
+        RCLCPP_DEBUG(this->get_logger(), "  %s: %.4f", right_joint_names[i].c_str(), right_joint_state_msg->position[i]);
+    }
     right_arm_state_pub_->publish(*right_joint_state_msg);
 
     // RCLCPP_DEBUG(this->get_logger(), "Published joint states from custom controller data");
 
+}
+
+void RmCustomControllerState::watchdog_callback()
+{
+    rclcpp::Time current_time = this->now();
+    double time_since_last_command = (current_time - last_command_time_).seconds();
+    
+    if (time_since_last_command > watchdog_timeout_) {
+        if (!watchdog_triggered_) {
+            RCLCPP_WARN(this->get_logger(), 
+                "WATCHDOG ALERT: No command received for %.2f seconds (timeout: %.2f seconds)",
+                time_since_last_command, watchdog_timeout_);
+            watchdog_triggered_ = true;
+        } else {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+                "WATCHDOG: Still no command (%.2f seconds elapsed)", time_since_last_command);
+        }
+    }
 }
 
 
