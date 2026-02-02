@@ -115,7 +115,12 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
         std::chrono::milliseconds(100),
         std::bind(&RmCustomControllerState::watchdog_callback, this)
     );
-    
+
+    // init gpio publisher
+    gpio_pub_ = this->create_publisher<std_msgs::msg::Float64>(gpio_pub_topic_, 10);
+    last_gpio_pub_time_ = this->now() + rclcpp::Duration::from_seconds(gpio_pub_period_);
+
+
     RCLCPP_INFO(this->get_logger(), "RmCustomControllerState node initialized with watchdog enabled");
 
 }
@@ -193,18 +198,49 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
     right_arm_state_pub_->publish(*right_joint_state_msg);
 
     // 发布底盘命令
-    publishChassisCommand(
+    publish_chassis_command(
         control_data.channel_0,
         control_data.channel_1,
         control_data.channel_2,
         control_data.channel_3
     );
 
+    // gpio pub
+    gpio_pub(control_data.gpio_state&1);
+
+
     // RCLCPP_DEBUG(this->get_logger(), "Published joint states from custom controller data");
 
 }
 
-float RmCustomControllerState::applyChannelMapping(
+void RmCustomControllerState::gpio_pub(bool state)
+{
+    previous_gpio_state_ = current_gpio_state_;
+    current_gpio_state_ = state;
+    gpio_state_changed_ = (previous_gpio_state_ != current_gpio_state_);
+
+    if(gpio_state_changed_ && current_gpio_state_){
+        counter_ = (counter_ + 1)%2;
+        last_gpio_pub_time_ = this->now();
+    }
+
+    if(current_gpio_state_){
+        last_gpio_pub_time_ = this->now();
+    }
+
+    // 根据周期发布
+    if((this->now() - last_gpio_pub_time_).seconds() >= gpio_pub_period_){
+        auto msg = std_msgs::msg::Float64();
+        if(counter_ == 0){
+            msg.data = counter_0_pub_value_;
+        }else{
+            msg.data = counter_1_pub_value_;
+        }
+        gpio_pub_->publish(msg);
+    }
+}
+
+float RmCustomControllerState::apply_channel_mapping(
     const std::string& mapping, const std::array<uint8_t, 4>& channels)
 {
     if (mapping == "none") return 0.0;
@@ -222,7 +258,7 @@ float RmCustomControllerState::applyChannelMapping(
     return 0.0;  // 未找到匹配的映射
 }
 
-void RmCustomControllerState::publishChassisCommand(
+void RmCustomControllerState::publish_chassis_command(
     uint8_t ch0, uint8_t ch1, uint8_t ch2, uint8_t ch3)
 {
     if (!enable_chassis_cmd_) {
@@ -238,12 +274,12 @@ void RmCustomControllerState::publishChassisCommand(
     twist_msg.header.frame_id = "base_link";
     
     // 根据配置映射通道到速度
-    twist_msg.twist.linear.x = applyChannelMapping("linear_x", channels);
-    twist_msg.twist.linear.y = applyChannelMapping("linear_y", channels);
+    twist_msg.twist.linear.x = apply_channel_mapping("linear_x", channels);
+    twist_msg.twist.linear.y = apply_channel_mapping("linear_y", channels);
     twist_msg.twist.linear.z = 0.0;
     twist_msg.twist.angular.x = 0.0;
     twist_msg.twist.angular.y = 0.0;
-    twist_msg.twist.angular.z = applyChannelMapping("angular_z", channels);
+    twist_msg.twist.angular.z = apply_channel_mapping("angular_z", channels);
     
     // 发布
     chassis_cmd_pub_->publish(twist_msg);

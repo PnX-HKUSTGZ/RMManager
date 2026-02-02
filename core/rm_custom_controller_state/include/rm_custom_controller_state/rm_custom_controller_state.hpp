@@ -9,6 +9,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 
+#include "std_msgs/msg/float64.hpp"
+
 #include "rm_message/msg/custom_controller.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
@@ -92,8 +94,20 @@ private:
     std::array<const std::string*, 4> channel_mappings_;
     std::array<double, 4> channel_maxs_;
     
-    void publishChassisCommand(uint8_t ch0, uint8_t ch1, uint8_t ch2, uint8_t ch3);
-    float applyChannelMapping(const std::string& mapping, const std::array<uint8_t, 4>& channels);
+    void publish_chassis_command(uint8_t ch0, uint8_t ch1, uint8_t ch2, uint8_t ch3);
+    float apply_channel_mapping(const std::string& mapping, const std::array<uint8_t, 4>& channels);
+
+    bool previous_gpio_state_ = false;
+    bool current_gpio_state_ = false;
+    bool gpio_state_changed_ = false;
+    int counter_ = 0;
+    double gpio_pub_period_ = 1.0;
+    rclcpp::Time last_gpio_pub_time_;
+    double counter_1_pub_value_ = 1.0;
+    double counter_0_pub_value_ = -1.0;
+    std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Float64>> gpio_pub_;
+    std::string gpio_pub_topic_ = "/right_gripper_controller/command";
+    void gpio_pub(bool state);
 
     // 看门狗相关成员
     rclcpp::Time last_command_time_;              // 最后一次接收到命令的时间
