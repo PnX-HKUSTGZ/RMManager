@@ -20,7 +20,7 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
     RCLCPP_INFO(this->get_logger(), "  delta_y: %.2f", params_->delta_y);
     RCLCPP_INFO(this->get_logger(), "  delta_z: %.2f", params_->delta_z);
     RCLCPP_INFO(this->get_logger(), "  target_bottons size: %zu", params_->target_bottons.size());
-    RCLCPP_INFO(this->get_logger(), "  keyboard_remote_control_exchange_key: %s", params_->keyboard_remote_control_exchange_key.c_str());
+    RCLCPP_INFO(this->get_logger(), "  control_source_switch_key: %s", params_->control_source_switch_key.c_str());
     RCLCPP_INFO(this->get_logger(), "  watchdog_timeout: %.2f", params_->watchdog_timeout);
     RCLCPP_INFO(this->get_logger(), "  watchdog_enabled: %s", params_->watchdog_enabled ? "true" : "false");
 
@@ -59,11 +59,11 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
             content ? "true" : "false");
     }
 
-    // keyboard_remote_controller_exchange_button
+    // control_source_switch_button
 
-    if(REMOTE_CONTROL_BUTTON_MAP.find(params_->keyboard_remote_control_exchange_key) == REMOTE_CONTROL_BUTTON_MAP.end()) {
-        RCLCPP_ERROR(this->get_logger(), "Parameter error: unknown button name %s", params_->keyboard_remote_control_exchange_key.c_str());
-        throw std::runtime_error("Parameter error: unknown button name " + params_->keyboard_remote_control_exchange_key);
+    if(REMOTE_CONTROL_BUTTON_MAP.find(params_->control_source_switch_key) == REMOTE_CONTROL_BUTTON_MAP.end()) {
+        RCLCPP_ERROR(this->get_logger(), "Parameter error: unknown button name %s", params_->control_source_switch_key.c_str());
+        throw std::runtime_error("Parameter error: unknown button name " + params_->control_source_switch_key);
     }
 
     // keyboard config
@@ -86,9 +86,13 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
     keyboard_up_ratio_ = params_->keyboard_up_ratio;
     keyboard_down_ratio_ = params_->keyboard_down_ratio;
 
-    keyboard_remote_control_exchange_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->keyboard_remote_control_exchange_key);
+    control_source_switch_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->control_source_switch_key);
 
     cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(params_->cmd_vel_topic, 10);
+    
+    // Initialize bridge topics
+    initializeBridgeTopics();
+    
     cmd_vel_sub_ = this->create_subscription<rm_message::msg::RemoteControl>(
         params_->remote_controller_topic, 10,
         std::bind(&RemoteController::cmdVelCallback, this, std::placeholders::_1)
@@ -129,16 +133,30 @@ void RemoteController::cmdVelCallback(const rm_message::msg::RemoteControl::Shar
     
     updateButtonStates(msg);
 
-    // 输出 button_toggled_[keyboard_remote_control_exchange_button_] 状态
-    RCLCPP_DEBUG(this->get_logger(), "Button toggled state for keyboard_remote_control_exchange_button_: %s",
-                button_toggled_[keyboard_remote_control_exchange_button_] ? "true" : "false");
+    // Handle control source switching
+    if (button_release_off_[control_source_switch_button_]) {
+        current_control_source_index_ = (current_control_source_index_ + 1) % total_control_sources_;
+        
+        std::string mode_name;
+        if (current_control_source_index_ == 0) {
+            mode_name = "REMOTE_CHANNEL";
+        } else if (current_control_source_index_ == 1) {
+            mode_name = "KEYBOARD_MOUSE";
+        } else {
+            int bridge_idx = current_control_source_index_ - 2;
+            mode_name = "BRIDGE[" + std::to_string(bridge_idx) + "]: " + params_->bridge_topics[bridge_idx];
+        }
+        RCLCPP_INFO(this->get_logger(), "Switched to control source: %s", mode_name.c_str());
+    }
 
-    if(button_toggled_[keyboard_remote_control_exchange_button_]) {
-        keyboardSendVel(msg);
+    // Only handle remote channel and keyboard/mouse modes here
+    // Bridge topics are handled in their own callbacks
+    if (current_control_source_index_ == 0) {
+        sendVel(msg);  // Remote channel
+    } else if (current_control_source_index_ == 1) {
+        keyboardSendVel(msg);  // Keyboard/Mouse
     }
-    else{
-        sendVel(msg);
-    }
+    // Bridge mode: velocity is published directly in bridge topic callback
 
     sendEnableChasis(msg);
     sendEnableArm(msg);
@@ -398,6 +416,77 @@ void RemoteController::watchdogCallback() {
         
         watchdog_triggered_ = true;
     }
+}
+
+void RemoteController::initializeBridgeTopics() {
+    total_control_sources_ = 2 + params_->bridge_topics.size();  // remote + keyboard + bridges
+    current_control_source_index_ = 0;  // Start with remote control
+    
+    // Create subscribers for bridge topics
+    for (size_t i = 0; i < params_->bridge_topics.size(); ++i) {
+        auto sub = this->create_subscription<geometry_msgs::msg::TwistStamped>(
+            params_->bridge_topics[i], 10,
+            [this, i](const geometry_msgs::msg::TwistStamped::SharedPtr msg) {
+                // Check if this bridge channel is currently selected
+                int expected_index = 2 + i;  // 0=remote, 1=keyboard, 2+=bridges
+                if (current_control_source_index_ != expected_index) {
+                    return;  // Not the active control source, ignore message
+                }
+                
+                sendBridgeVel(msg, i);
+            }
+        );
+        bridge_vel_subs_.push_back(sub);
+        
+        RCLCPP_INFO(this->get_logger(), "Subscribed to bridge topic[%zu]: %s", 
+                    i, params_->bridge_topics[i].c_str());
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Total control sources: %d (Remote + Keyboard + %zu Bridges)",
+                total_control_sources_, params_->bridge_topics.size());
+}
+
+void RemoteController::sendBridgeVel(const geometry_msgs::msg::TwistStamped::SharedPtr msg, size_t bridge_index) {
+    // Apply velocity limits and acceleration constraints
+    auto twist_msg = geometry_msgs::msg::TwistStamped();
+    twist_msg.header.stamp = this->now();
+    twist_msg.header.frame_id = "base_link";
+    
+    float desired_x = msg->twist.linear.x;
+    float desired_y = msg->twist.linear.y;
+    float desired_z = msg->twist.angular.z;
+    
+    // Clamp to max velocities
+    desired_x = std::clamp(desired_x, static_cast<float>(-params_->max_x), static_cast<float>(params_->max_x));
+    desired_y = std::clamp(desired_y, static_cast<float>(-params_->max_y), static_cast<float>(params_->max_y));
+    desired_z = std::clamp(desired_z, static_cast<float>(-params_->max_z), static_cast<float>(params_->max_z));
+    
+    rclcpp::Time current_time = this->now();
+    double time_diff = (current_time - last_time_).seconds();
+    last_time_ = current_time;
+    
+    // Apply acceleration limits (allow emergency stop)
+    if (std::abs(desired_x) >= 1e-4 && std::abs(desired_x - last_x_) > params_->delta_x * time_diff) {
+        desired_x = last_x_ + (desired_x > last_x_ ? params_->delta_x * time_diff : -params_->delta_x * time_diff);
+    }
+    if (std::abs(desired_y) >= 1e-4 && std::abs(desired_y - last_y_) > params_->delta_y * time_diff) {
+        desired_y = last_y_ + (desired_y > last_y_ ? params_->delta_y * time_diff : -params_->delta_y * time_diff);
+    }
+    if (std::abs(desired_z) >= 1e-4 && std::abs(desired_z - last_z_) > params_->delta_z * time_diff) {
+        desired_z = last_z_ + (desired_z > last_z_ ? params_->delta_z * time_diff : -params_->delta_z * time_diff);
+    }
+    
+    twist_msg.twist.linear.x = desired_x;
+    twist_msg.twist.linear.y = desired_y;
+    twist_msg.twist.angular.z = desired_z;
+    
+    last_x_ = twist_msg.twist.linear.x;
+    last_y_ = twist_msg.twist.linear.y;
+    last_z_ = twist_msg.twist.angular.z;
+    
+    cmd_vel_pub_->publish(twist_msg);
+    RCLCPP_DEBUG(this->get_logger(), "Published bridge cmd_vel[%zu]: linear.x=%.3f, linear.y=%.3f, angular.z=%.3f", 
+                 bridge_index, twist_msg.twist.linear.x, twist_msg.twist.linear.y, twist_msg.twist.angular.z);
 }
 
 } // namespace RM_REMOTE_CONTROLLER

@@ -11,6 +11,7 @@
 
 #include "rm_message/msg/custom_controller.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "geometry_msgs/msg/twist_stamped.hpp"
 #include "rm_custom_controller_state/rm_custom_controller_state_parameters.hpp"
 
 namespace rm_custom_controller_state
@@ -77,8 +78,19 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr left_arm_state_pub_;
     // 右机械臂关节状态的发布者
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr right_arm_state_pub_;
+    // 底盘命令发布者
+    rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr chassis_cmd_pub_;
 
     void ref_topic_callback(const rm_message::msg::CustomController::SharedPtr msg);
+
+    // 底盘命令相关成员
+    bool enable_chassis_cmd_;
+    std::string chassis_cmd_topic_;
+    double max_linear_x_;
+    double max_linear_y_;
+    double max_angular_z_;
+    
+    void publishChassisCommand(int8_t ch0, int8_t ch1, int8_t ch2, int8_t ch3);
 
     // 看门狗相关成员
     rclcpp::Time last_command_time_;              // 最后一次接收到命令的时间

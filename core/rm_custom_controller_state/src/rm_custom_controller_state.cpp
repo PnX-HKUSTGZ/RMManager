@@ -56,6 +56,21 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     RCLCPP_INFO(this->get_logger(), "Ref topic: %s", ref_topic.c_str());
     RCLCPP_INFO(this->get_logger(), "Watchdog timeout: %.2f seconds", watchdog_timeout_);
     
+    // 读取底盘命令相关参数
+    enable_chassis_cmd_ = params_.enable_chassis_cmd;
+    chassis_cmd_topic_ = params_.chassis_cmd_topic;
+    max_linear_x_ = params_.max_linear_x;
+    max_linear_y_ = params_.max_linear_y;
+    max_angular_z_ = params_.max_angular_z;
+    
+    RCLCPP_INFO(this->get_logger(), "Chassis command enabled: %s", 
+                enable_chassis_cmd_ ? "true" : "false");
+    if (enable_chassis_cmd_) {
+        RCLCPP_INFO(this->get_logger(), "Chassis cmd topic: %s", chassis_cmd_topic_.c_str());
+        RCLCPP_INFO(this->get_logger(), "Max velocities - linear_x: %.2f, linear_y: %.2f, angular_z: %.2f",
+                    max_linear_x_, max_linear_y_, max_angular_z_);
+    }
+    
     // 初始化看门狗
     last_command_time_ = this->now();
     watchdog_triggered_ = false;
@@ -63,6 +78,9 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     // 创建发布者
     left_arm_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(left_arm_state_topic, 10);
     right_arm_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(right_arm_state_topic, 10);
+    if (enable_chassis_cmd_) {
+        chassis_cmd_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(chassis_cmd_topic_, 10);
+    }
     // 创建订阅者
     ref_topic_sub_ = this->create_subscription<rm_message::msg::CustomController>(
         ref_topic,
@@ -152,8 +170,53 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
     }
     right_arm_state_pub_->publish(*right_joint_state_msg);
 
+    // 发布底盘命令
+    publishChassisCommand(
+        control_data.channel_0,
+        control_data.channel_1,
+        control_data.channel_2,
+        control_data.channel_3
+    );
+
     // RCLCPP_DEBUG(this->get_logger(), "Published joint states from custom controller data");
 
+}
+
+void RmCustomControllerState::publishChassisCommand(
+    int8_t ch0, int8_t ch1, int8_t ch2, int8_t ch3)
+{
+    if (!enable_chassis_cmd_) {
+        return;
+    }
+    
+    // 归一化通道值到 [-1.0, 1.0]
+    // int8_t [-128, 127] -> float [-1.0, 1.0]
+    float norm_ch0 = std::clamp(static_cast<float>(ch0) / 127.0f, -1.0f, 1.0f);
+    float norm_ch1 = std::clamp(static_cast<float>(ch1) / 127.0f, -1.0f, 1.0f);
+    float norm_ch2 = std::clamp(static_cast<float>(ch2) / 127.0f, -1.0f, 1.0f);
+    // ch3 预留未使用
+    (void)ch3;  // 抑制未使用参数警告
+    
+    // 创建 TwistStamped 消息
+    auto twist_msg = geometry_msgs::msg::TwistStamped();
+    twist_msg.header.stamp = this->now();
+    twist_msg.header.frame_id = "base_link";
+    
+    // 映射到实际速度
+    twist_msg.twist.linear.x = norm_ch0 * max_linear_x_;
+    twist_msg.twist.linear.y = norm_ch1 * max_linear_y_;
+    twist_msg.twist.linear.z = 0.0;
+    twist_msg.twist.angular.x = 0.0;
+    twist_msg.twist.angular.y = 0.0;
+    twist_msg.twist.angular.z = norm_ch2 * max_angular_z_;
+    
+    // 发布
+    chassis_cmd_pub_->publish(twist_msg);
+    
+    RCLCPP_DEBUG(this->get_logger(), 
+        "Published chassis command: linear=[%.3f, %.3f], angular=%.3f",
+        twist_msg.twist.linear.x, twist_msg.twist.linear.y, 
+        twist_msg.twist.angular.z);
 }
 
 void RmCustomControllerState::watchdog_callback()

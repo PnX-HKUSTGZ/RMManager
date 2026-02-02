@@ -159,6 +159,13 @@ private:
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr chasis_enable_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr arm_enable_pub_;
 
+    // Bridge velocity subscribers
+    std::vector<rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr> bridge_vel_subs_;
+
+    // Control source management
+    int current_control_source_index_ = 0;  // 0=remote, 1=keyboard, 2+=bridge
+    int total_control_sources_ = 2;         // remote + keyboard + bridge count
+
     // Watchdog timer
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
     rclcpp::Time last_message_time_;
@@ -176,13 +183,17 @@ private:
 
     void sendEnableArm(const rm_message::msg::RemoteControl::SharedPtr msg);
 
+    void initializeBridgeTopics();
+
+    void sendBridgeVel(const geometry_msgs::msg::TwistStamped::SharedPtr msg, size_t bridge_index);
+
     float last_x_ = 0;
     float last_y_ = 0;
     float last_z_ = 0;
 
     std::string stop_button_;
 
-    REMOTE_CONTROL_BUTTON keyboard_remote_control_exchange_button_;
+    REMOTE_CONTROL_BUTTON control_source_switch_button_;
 
     REMOTE_CONTROL_BUTTON keyboard_forward_button_;
     REMOTE_CONTROL_BUTTON keyboard_backward_button_;

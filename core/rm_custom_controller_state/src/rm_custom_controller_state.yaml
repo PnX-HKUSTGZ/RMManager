@@ -33,3 +33,42 @@ rm_custom_controller_state:
       gt<>: [0.0]
     }
   }
+
+  chassis_cmd_topic: {
+    type: string,
+    default_value: "/chassis_cmd_vel",
+    description: "ROS topic for chassis velocity command (TwistStamped)."
+  }
+
+  enable_chassis_cmd: {
+    type: bool,
+    default_value: true,
+    description: "Enable chassis command publishing from channel data."
+  }
+
+  max_linear_x: {
+    type: double,
+    default_value: 1.0,
+    description: "Maximum linear velocity in x direction (m/s).",
+    validation: {
+      gt<>: [0.0]
+    }
+  }
+
+  max_linear_y: {
+    type: double,
+    default_value: 1.0,
+    description: "Maximum linear velocity in y direction (m/s).",
+    validation: {
+      gt<>: [0.0]
+    }
+  }
+
+  max_angular_z: {
+    type: double,
+    default_value: 1.0,
+    description: "Maximum angular velocity in z direction (rad/s).",
+    validation: {
+      gt<>: [0.0]
+    }
+  }
