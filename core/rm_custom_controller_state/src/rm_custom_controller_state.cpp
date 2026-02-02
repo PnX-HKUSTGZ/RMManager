@@ -59,16 +59,38 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     // 读取底盘命令相关参数
     enable_chassis_cmd_ = params_.enable_chassis_cmd;
     chassis_cmd_topic_ = params_.chassis_cmd_topic;
-    max_linear_x_ = params_.max_linear_x;
-    max_linear_y_ = params_.max_linear_y;
-    max_angular_z_ = params_.max_angular_z;
+    channel_mapping_ = params_.channel_mapping;
+    channel_max_ = params_.channel_max;
+    
+    // 验证数组长度
+    if (channel_mapping_.size() != 4) {
+        RCLCPP_ERROR(this->get_logger(), "channel_mapping size must be 4, got %zu", channel_mapping_.size());
+        throw std::runtime_error("channel_mapping size must be 4");
+    }
+    if (channel_max_.size() != 4) {
+        RCLCPP_ERROR(this->get_logger(), "channel_max size must be 4, got %zu", channel_max_.size());
+        throw std::runtime_error("channel_max size must be 4");
+    }
+    
+    // 初始化通道映射和最大值数组
+    channel_mappings_ = {
+        &channel_mapping_[0], &channel_mapping_[1],
+        &channel_mapping_[2], &channel_mapping_[3]
+    };
+    channel_maxs_ = {
+        channel_max_[0], channel_max_[1],
+        channel_max_[2], channel_max_[3]
+    };
     
     RCLCPP_INFO(this->get_logger(), "Chassis command enabled: %s", 
                 enable_chassis_cmd_ ? "true" : "false");
     if (enable_chassis_cmd_) {
         RCLCPP_INFO(this->get_logger(), "Chassis cmd topic: %s", chassis_cmd_topic_.c_str());
-        RCLCPP_INFO(this->get_logger(), "Max velocities - linear_x: %.2f, linear_y: %.2f, angular_z: %.2f",
-                    max_linear_x_, max_linear_y_, max_angular_z_);
+        RCLCPP_INFO(this->get_logger(), "Channel mappings - ch0:%s, ch1:%s, ch2:%s, ch3:%s",
+                    channel_mapping_[0].c_str(), channel_mapping_[1].c_str(),
+                    channel_mapping_[2].c_str(), channel_mapping_[3].c_str());
+        RCLCPP_INFO(this->get_logger(), "Channel max values - ch0:%.2f, ch1:%.2f, ch2:%.2f, ch3:%.2f",
+                    channel_max_[0], channel_max_[1], channel_max_[2], channel_max_[3]);
     }
     
     // 初始化看门狗
@@ -182,38 +204,51 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
 
 }
 
+float RmCustomControllerState::applyChannelMapping(
+    const std::string& mapping, const std::array<uint8_t, 4>& channels)
+{
+    if (mapping == "none") return 0.0;
+    
+    // 查找匹配的通道
+    for (size_t i = 0; i < 4; ++i) {
+        if (*channel_mappings_[i] == mapping) {
+            // uint8_t [0, 255] 归一化到 [-1.0, 1.0]，128为中位
+            float normalized = (static_cast<float>(channels[i]) - 127.0f) / 127.0f;
+            normalized = std::clamp(normalized, -1.0f, 1.0f);
+            return normalized * channel_maxs_[i];
+        }
+    }
+    
+    return 0.0;  // 未找到匹配的映射
+}
+
 void RmCustomControllerState::publishChassisCommand(
-    int8_t ch0, int8_t ch1, int8_t ch2, int8_t ch3)
+    uint8_t ch0, uint8_t ch1, uint8_t ch2, uint8_t ch3)
 {
     if (!enable_chassis_cmd_) {
         return;
     }
     
-    // 归一化通道值到 [-1.0, 1.0]
-    // int8_t [-128, 127] -> float [-1.0, 1.0]
-    float norm_ch0 = std::clamp(static_cast<float>(ch0) / 127.0f, -1.0f, 1.0f);
-    float norm_ch1 = std::clamp(static_cast<float>(ch1) / 127.0f, -1.0f, 1.0f);
-    float norm_ch2 = std::clamp(static_cast<float>(ch2) / 127.0f, -1.0f, 1.0f);
-    // ch3 预留未使用
-    (void)ch3;  // 抑制未使用参数警告
+    // 组装通道数组
+    const std::array<uint8_t, 4> channels = {ch0, ch1, ch2, ch3};
     
     // 创建 TwistStamped 消息
     auto twist_msg = geometry_msgs::msg::TwistStamped();
     twist_msg.header.stamp = this->now();
     twist_msg.header.frame_id = "base_link";
     
-    // 映射到实际速度
-    twist_msg.twist.linear.x = norm_ch0 * max_linear_x_;
-    twist_msg.twist.linear.y = norm_ch1 * max_linear_y_;
+    // 根据配置映射通道到速度
+    twist_msg.twist.linear.x = applyChannelMapping("linear_x", channels);
+    twist_msg.twist.linear.y = applyChannelMapping("linear_y", channels);
     twist_msg.twist.linear.z = 0.0;
     twist_msg.twist.angular.x = 0.0;
     twist_msg.twist.angular.y = 0.0;
-    twist_msg.twist.angular.z = norm_ch2 * max_angular_z_;
+    twist_msg.twist.angular.z = applyChannelMapping("angular_z", channels);
     
     // 发布
     chassis_cmd_pub_->publish(twist_msg);
     
-    RCLCPP_DEBUG(this->get_logger(), 
+    RCLCPP_INFO(this->get_logger(), 
         "Published chassis command: linear=[%.3f, %.3f], angular=%.3f",
         twist_msg.twist.linear.x, twist_msg.twist.linear.y, 
         twist_msg.twist.angular.z);

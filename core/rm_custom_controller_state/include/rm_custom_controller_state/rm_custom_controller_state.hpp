@@ -31,10 +31,10 @@ typedef struct {
      * \brief 顺序为 left_j0 - left_j5 right_j0 - right_j5
      */
     uint16_t rotor_angles[12];
-    int8_t channel_0;
-    int8_t channel_1;
-    int8_t channel_2;
-    int8_t channel_3;
+    uint8_t channel_0;
+    uint8_t channel_1;
+    uint8_t channel_2;
+    uint8_t channel_3;
     /**
      * \brief 8个gpio状态,每个bit标识一个，未使用的为后续功能预留 (8字节)
      */
@@ -86,11 +86,14 @@ private:
     // 底盘命令相关成员
     bool enable_chassis_cmd_;
     std::string chassis_cmd_topic_;
-    double max_linear_x_;
-    double max_linear_y_;
-    double max_angular_z_;
+    std::vector<std::string> channel_mapping_;
+    std::vector<double> channel_max_;
     
-    void publishChassisCommand(int8_t ch0, int8_t ch1, int8_t ch2, int8_t ch3);
+    std::array<const std::string*, 4> channel_mappings_;
+    std::array<double, 4> channel_maxs_;
+    
+    void publishChassisCommand(uint8_t ch0, uint8_t ch1, uint8_t ch2, uint8_t ch3);
+    float applyChannelMapping(const std::string& mapping, const std::array<uint8_t, 4>& channels);
 
     // 看门狗相关成员
     rclcpp::Time last_command_time_;              // 最后一次接收到命令的时间

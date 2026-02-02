@@ -36,7 +36,7 @@ rm_custom_controller_state:
 
   chassis_cmd_topic: {
     type: string,
-    default_value: "/chassis_cmd_vel",
+    default_value: "~/chassis_cmd_vel",
     description: "ROS topic for chassis velocity command (TwistStamped)."
   }
 
@@ -46,29 +46,21 @@ rm_custom_controller_state:
     description: "Enable chassis command publishing from channel data."
   }
 
-  max_linear_x: {
-    type: double,
-    default_value: 1.0,
-    description: "Maximum linear velocity in x direction (m/s).",
+  channel_mapping: {
+    type: string_array,
+    default_value: ["linear_x", "linear_y", "angular_z", "none"],
+    description: "Mapping for each channel. Options: 'linear_x', 'linear_y', 'angular_z', 'none'. Length must be 4.",
     validation: {
-      gt<>: [0.0]
+      fixed_size<>: [4]
     }
   }
 
-  max_linear_y: {
-    type: double,
-    default_value: 1.0,
-    description: "Maximum linear velocity in y direction (m/s).",
+  channel_max: {
+    type: double_array,
+    default_value: [1.0, 1.0, 1.0, 1.0],
+    description: "Maximum value for each channel output. Length must be 4.",
     validation: {
-      gt<>: [0.0]
-    }
-  }
-
-  max_angular_z: {
-    type: double,
-    default_value: 1.0,
-    description: "Maximum angular velocity in z direction (rad/s).",
-    validation: {
-      gt<>: [0.0]
+      fixed_size<>: [4],
+      element_bounds<>: [-100.0, 100.0]
     }
   }
