@@ -67,10 +67,6 @@ install(FILES rm_button_action.xml
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(DIRECTORY test/
-  DESTINATION share/${PROJECT_NAME}/test
-)
-
 install(DIRECTORY params/
   DESTINATION share/${PROJECT_NAME}/params
 )

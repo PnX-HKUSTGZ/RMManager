@@ -11,6 +11,7 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "std_msgs/msg/bool.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 #include "rm_message/msg/custom_controller.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
@@ -58,6 +59,7 @@ public:
 
 private:
 
+
     // 左机械臂关节状态topic
     std::string left_arm_state_topic;
     // 右机械臂关节状态topic
@@ -84,6 +86,9 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr right_arm_state_pub_;
     // 底盘命令发布者
     rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr chassis_cmd_pub_;
+    
+    // GPIO状态发布者 (GPIO0-GPIO3)
+    std::array<rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr, GPIO_NUM> gpio_publishers_;
 
     void ref_topic_callback(const rm_message::msg::CustomController::SharedPtr msg);
 
@@ -98,8 +103,6 @@ private:
     
     void publish_chassis_command(uint8_t ch0, uint8_t ch1, uint8_t ch2, uint8_t ch3);
     float apply_channel_mapping(const std::string& mapping, const std::array<uint8_t, 4>& channels);
-
-    std::array<rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr, GPIO_NUM> gpio_state_pubs_;
 
     // 看门狗相关成员
     rclcpp::Time last_command_time_;              // 最后一次接收到命令的时间

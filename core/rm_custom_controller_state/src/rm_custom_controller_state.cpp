@@ -103,6 +103,14 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     if (enable_chassis_cmd_) {
         chassis_cmd_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(chassis_cmd_topic_, 10);
     }
+    
+    // 创建GPIO发布者
+    for (int i = 0; i < GPIO_NUM; ++i) {
+        std::string gpio_topic = "~/gpio" + std::to_string(i) + "_state";
+        gpio_publishers_[i] = this->create_publisher<std_msgs::msg::Bool>(gpio_topic, 10);
+        RCLCPP_INFO(this->get_logger(), "Created GPIO publisher for topic: %s", gpio_topic.c_str());
+    }
+
     // 创建订阅者
     ref_topic_sub_ = this->create_subscription<rm_message::msg::CustomController>(
         ref_topic,
@@ -115,12 +123,6 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
         std::chrono::milliseconds(100),
         std::bind(&RmCustomControllerState::watchdog_callback, this)
     );
-
-    // init gpio publishers
-    for (size_t i = 0; i < GPIO_NUM; ++i) {
-        const std::string topic = std::string("~/gpio") + std::to_string(i) + "_state";
-        gpio_state_pubs_[i] = this->create_publisher<std_msgs::msg::Bool>(topic, 10);
-    }
 
 
     RCLCPP_INFO(this->get_logger(), "RmCustomControllerState node initialized with watchdog enabled");
@@ -164,6 +166,14 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
                  control_data.channel_2,
                  control_data.channel_3);
     RCLCPP_DEBUG(this->get_logger(), "  GPIO State: %d", control_data.gpio_state);
+    
+    for (int i = 0; i < GPIO_NUM; ++i) {
+        bool gpio_state = (control_data.gpio_state >> i) & 0x01;
+        auto gpio_msg = std_msgs::msg::Bool();
+        gpio_msg.data = gpio_state;
+        gpio_publishers_[i]->publish(gpio_msg);
+        RCLCPP_DEBUG(this->get_logger(), "  GPIO%d: %s", i, gpio_state ? "HIGH" : "LOW");
+    }
 
     // 发布左机械臂关节状态
     auto left_joint_state_msg = std::make_shared<sensor_msgs::msg::JointState>();
@@ -206,14 +216,6 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
         control_data.channel_2,
         control_data.channel_3
     );
-
-    // gpio pub
-    for (size_t i = 0; i < GPIO_NUM; ++i) {
-        std_msgs::msg::Bool gpio_msg;
-        gpio_msg.data = ((control_data.gpio_state >> i) & 0x01) != 0;
-        gpio_state_pubs_[i]->publish(gpio_msg);
-    }
-
 
     // RCLCPP_DEBUG(this->get_logger(), "Published joint states from custom controller data");
 
