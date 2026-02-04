@@ -1,0 +1,26 @@
+rm_button_action:
+  ros__parameters:
+    input_topic: "/button_state"
+
+    press_state_action_topic: "/button/pressed"
+    press_state_action_type: "bool"
+    press_state_action_bool_value: true
+    press_state_action_float_value: 0.0
+
+    release_state_action_topic: "/button/released"
+    release_state_action_type: "bool"
+    release_state_action_bool_value: false
+    release_state_action_float_value: 0.0
+
+    press_edge_action_topics: ["/action/press_1", "/action/press_2"]
+    press_edge_action_types: ["float32", "float32"]
+    press_edge_action_bool_values: [false, false]
+    press_edge_action_float_values: [0.2, 0.4]
+
+    release_edge_action_topics: ["/action/release_1", "/action/release_2"]
+    release_edge_action_types: ["float64", "float64"]
+    release_edge_action_bool_values: [false, false]
+    release_edge_action_float_values: [1.0, 2.0]
+
+    press_edge_start_index: 0
+    release_edge_start_index: 0

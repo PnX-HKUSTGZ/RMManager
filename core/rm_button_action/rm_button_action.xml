@@ -1,0 +1,7 @@
+<library path="rm_button_action_component">
+  <class name="rm_button_action/RmButtonAction"
+         type="rm_button_action::RmButtonAction"
+         base_class_type="rclcpp_components::NodeFactory">
+    <description>Button action trigger node.</description>
+  </class>
+</library>

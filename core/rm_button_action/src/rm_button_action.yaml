@@ -1,0 +1,133 @@
+rm_button_action:
+
+  input_topic: {
+    type: string,
+    default_value: "/button_state",
+    description: "Input Bool topic for button state (true=pressed, false=released)."
+  }
+
+  press_state_action_topic: {
+    type: string,
+    default_value: "",
+    description: "Output topic for press state action. Empty means disabled."
+  }
+
+  press_state_action_type: {
+    type: string,
+    default_value: "none",
+    description: "Message type for press state action. Options: none/bool/float32/float64.",
+    validation: {
+      one_of<>: [["none", "bool", "float32", "float64"]]
+    }
+  }
+
+  press_state_action_bool_value: {
+    type: bool,
+    default_value: true,
+    description: "Bool value for press state action."
+  }
+
+  press_state_action_float_value: {
+    type: double,
+    default_value: 0.0,
+    description: "Float value for press state action (float32/float64)."
+  }
+
+  release_state_action_topic: {
+    type: string,
+    default_value: "",
+    description: "Output topic for release state action. Empty means disabled."
+  }
+
+  release_state_action_type: {
+    type: string,
+    default_value: "none",
+    description: "Message type for release state action. Options: none/bool/float32/float64.",
+    validation: {
+      one_of<>: [["none", "bool", "float32", "float64"]]
+    }
+  }
+
+  release_state_action_bool_value: {
+    type: bool,
+    default_value: false,
+    description: "Bool value for release state action."
+  }
+
+  release_state_action_float_value: {
+    type: double,
+    default_value: 0.0,
+    description: "Float value for release state action (float32/float64)."
+  }
+
+  press_edge_action_topics: {
+    type: string_array,
+    default_value: [],
+    description: "Output topics for press edge actions."
+  }
+
+  press_edge_action_types: {
+    type: string_array,
+    default_value: [],
+    description: "Message types for press edge actions. Options: none/bool/float32/float64.",
+    validation: {
+      subset_of<>: [["none", "bool", "float32", "float64"]]
+    }
+  }
+
+  press_edge_action_bool_values: {
+    type: bool_array,
+    default_value: [],
+    description: "Bool values for press edge actions."
+  }
+
+  press_edge_action_float_values: {
+    type: double_array,
+    default_value: [],
+    description: "Float values for press edge actions."
+  }
+
+  release_edge_action_topics: {
+    type: string_array,
+    default_value: [],
+    description: "Output topics for release edge actions."
+  }
+
+  release_edge_action_types: {
+    type: string_array,
+    default_value: [],
+    description: "Message types for release edge actions. Options: none/bool/float32/float64.",
+    validation: {
+      subset_of<>: [["none", "bool", "float32", "float64"]]
+    }
+  }
+
+  release_edge_action_bool_values: {
+    type: bool_array,
+    default_value: [],
+    description: "Bool values for release edge actions."
+  }
+
+  release_edge_action_float_values: {
+    type: double_array,
+    default_value: [],
+    description: "Float values for release edge actions."
+  }
+
+  press_edge_start_index: {
+    type: int,
+    default_value: 0,
+    description: "Start index for press edge action list.",
+    validation: {
+      gt<>: [-1]
+    }
+  }
+
+  release_edge_start_index: {
+    type: int,
+    default_value: 0,
+    description: "Start index for release edge action list.",
+    validation: {
+      gt<>: [-1]
+    }
+  }
