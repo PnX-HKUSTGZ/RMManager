@@ -3,13 +3,14 @@
 
 #include <iostream>
 #include <string>
+#include <array>
 #include <vector>
 #include <memory>
 
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "std_msgs/msg/float64.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 #include "rm_message/msg/custom_controller.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
@@ -23,6 +24,7 @@ const float POS_MIN = -3.1415926535f;  // -π
 const float POS_MAX = 3.1415926535f;   // +π
 const int BITS = 16;                   // 压缩到16位
 const int JOINT_NUM = 6;                // 每个机械臂关节数
+const int GPIO_NUM = 8;                 // GPIO 数量
 
 int float_to_uint(float x_float, float x_min, float x_max, int bits);
 float uint_to_float(int x_uint, float x_min, float x_max, int bits);
@@ -97,17 +99,7 @@ private:
     void publish_chassis_command(uint8_t ch0, uint8_t ch1, uint8_t ch2, uint8_t ch3);
     float apply_channel_mapping(const std::string& mapping, const std::array<uint8_t, 4>& channels);
 
-    bool previous_gpio_state_ = false;
-    bool current_gpio_state_ = false;
-    bool gpio_state_changed_ = false;
-    int counter_ = 0;
-    double gpio_pub_period_ = 1.0;
-    rclcpp::Time last_gpio_pub_time_;
-    double counter_1_pub_value_ = 1.0;
-    double counter_0_pub_value_ = -1.0;
-    std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Float64>> gpio_pub_;
-    std::string gpio_pub_topic_ = "/right_gripper_controller/command";
-    void gpio_pub(bool state);
+    std::array<rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr, GPIO_NUM> gpio_state_pubs_;
 
     // 看门狗相关成员
     rclcpp::Time last_command_time_;              // 最后一次接收到命令的时间

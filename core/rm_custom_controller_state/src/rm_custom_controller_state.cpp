@@ -116,9 +116,11 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
         std::bind(&RmCustomControllerState::watchdog_callback, this)
     );
 
-    // init gpio publisher
-    gpio_pub_ = this->create_publisher<std_msgs::msg::Float64>(gpio_pub_topic_, 10);
-    last_gpio_pub_time_ = this->now() + rclcpp::Duration::from_seconds(gpio_pub_period_);
+    // init gpio publishers
+    for (size_t i = 0; i < GPIO_NUM; ++i) {
+        const std::string topic = std::string("~/gpio") + std::to_string(i) + "_state";
+        gpio_state_pubs_[i] = this->create_publisher<std_msgs::msg::Bool>(topic, 10);
+    }
 
 
     RCLCPP_INFO(this->get_logger(), "RmCustomControllerState node initialized with watchdog enabled");
@@ -206,38 +208,15 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
     );
 
     // gpio pub
-    gpio_pub(control_data.gpio_state&1);
+    for (size_t i = 0; i < GPIO_NUM; ++i) {
+        std_msgs::msg::Bool gpio_msg;
+        gpio_msg.data = ((control_data.gpio_state >> i) & 0x01) != 0;
+        gpio_state_pubs_[i]->publish(gpio_msg);
+    }
 
 
     // RCLCPP_DEBUG(this->get_logger(), "Published joint states from custom controller data");
 
-}
-
-void RmCustomControllerState::gpio_pub(bool state)
-{
-    previous_gpio_state_ = current_gpio_state_;
-    current_gpio_state_ = state;
-    gpio_state_changed_ = (previous_gpio_state_ != current_gpio_state_);
-
-    if(gpio_state_changed_ && current_gpio_state_){
-        counter_ = (counter_ + 1)%2;
-        last_gpio_pub_time_ = this->now();
-    }
-
-    if(current_gpio_state_){
-        last_gpio_pub_time_ = this->now();
-    }
-
-    // 根据周期发布
-    if((this->now() - last_gpio_pub_time_).seconds() >= gpio_pub_period_){
-        auto msg = std_msgs::msg::Float64();
-        if(counter_ == 0){
-            msg.data = counter_0_pub_value_;
-        }else{
-            msg.data = counter_1_pub_value_;
-        }
-        gpio_pub_->publish(msg);
-    }
 }
 
 float RmCustomControllerState::apply_channel_mapping(
