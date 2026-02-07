@@ -100,6 +100,14 @@ RemoteController::RemoteController(std::string name) : rclcpp::Node(name) {
     chasis_enable_pub_ = this->create_publisher<std_msgs::msg::Bool>(params_->chasis_enable_topic, 10);
     arm_enable_pub_ = this->create_publisher<std_msgs::msg::Bool>(params_->arm_enable_topic, 10);
 
+    // Initialize button state publishers for all buttons
+    for (const auto& [button, name] : REMOTE_CONTROL_BUTTON_NAMES) {
+        std::string topic_name = "~/button/" + name;
+        button_state_publishers_[button] = this->create_publisher<std_msgs::msg::Bool>(topic_name, 10);
+        RCLCPP_DEBUG(this->get_logger(), "Created button state publisher: %s", topic_name.c_str());
+    }
+    RCLCPP_INFO(this->get_logger(), "Initialized %zu button state publishers", button_state_publishers_.size());
+
     last_time_ = this->now();
 
     // Initialize watchdog timer
@@ -132,6 +140,7 @@ void RemoteController::cmdVelCallback(const rm_message::msg::RemoteControl::Shar
     }
     
     updateButtonStates(msg);
+    publishButtonStates();
 
     // Handle control source switching
     if (button_release_off_[control_source_switch_button_]) {
@@ -303,6 +312,15 @@ void RemoteController::updateButtonStates(const rm_message::msg::RemoteControl::
         }
 
         action->execute(trigger_types);
+    }
+}
+
+void RemoteController::publishButtonStates() {
+    // Publish current state of all buttons
+    for (const auto& [button, pressed] : button_current_) {
+        auto msg = std_msgs::msg::Bool();
+        msg.data = pressed;
+        button_state_publishers_[button]->publish(msg);
     }
 }
 

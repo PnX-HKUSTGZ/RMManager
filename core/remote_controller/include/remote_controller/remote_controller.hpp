@@ -159,6 +159,9 @@ private:
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr chasis_enable_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr arm_enable_pub_;
 
+    // Button state publishers - one for each button
+    std::unordered_map<REMOTE_CONTROL_BUTTON, rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr> button_state_publishers_;
+
     // Bridge velocity subscribers
     std::vector<rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr> bridge_vel_subs_;
 
@@ -344,6 +347,9 @@ private:
     std::vector<std::shared_ptr<ButtonAction>> button_actions_;
     // 更新按钮状态
     void updateButtonStates(const rm_message::msg::RemoteControl::SharedPtr msg);
+
+    // 发布所有按钮的当前状态
+    void publishButtonStates();
 
 };
 
