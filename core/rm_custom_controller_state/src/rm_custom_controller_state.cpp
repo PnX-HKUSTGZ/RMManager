@@ -265,7 +265,8 @@ void RmCustomControllerState::publish_chassis_command(
     // 发布
     chassis_cmd_pub_->publish(twist_msg);
     
-    RCLCPP_INFO(this->get_logger(), 
+    RCLCPP_DEBUG_THROTTLE(this->get_logger(),
+            *this->get_clock(), 1000,
         "Published chassis command: linear=[%.3f, %.3f], angular=%.3f",
         twist_msg.twist.linear.x, twist_msg.twist.linear.y, 
         twist_msg.twist.angular.z);
