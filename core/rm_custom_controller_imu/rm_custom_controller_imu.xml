@@ -1,0 +1,9 @@
+<library path="rm_custom_controller_imu_component">
+  <class name="rm_custom_controller_imu::RmCustomControllerImu" type="rm_custom_controller_imu::RmCustomControllerImu" base_class_type="rclcpp::Node">
+    <description>
+      RmCustomControllerImu component for processing custom controller IMU data from referee system.
+      Handles ControlData1 (0xA1) for quaternion+position broadcasting via TF2,
+      and ControlData2 (0xA2) for twist commands and GPIO states.
+    </description>
+  </class>
+</library>

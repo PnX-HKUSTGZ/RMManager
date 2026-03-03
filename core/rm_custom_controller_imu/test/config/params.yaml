@@ -1,0 +1,26 @@
+rm_custom_controller_imu:
+  ros__parameters:
+    # 裁判系统数据topic
+    ref_topic: "/rm_manager/custom_controller"
+    
+    # 看门狗超时时间（秒）
+    watchdog_timeout: 1.0
+    
+    # ControlData1 (0xA1) - TF2变换参数
+    parent_frame: "world"
+    child_frame: "controller_imu"
+    pose_topic: "~/pose"
+    position_scale_x: 1.0
+    position_scale_y: 1.0
+    position_scale_z: 1.0
+    
+    # ControlData2 (0xA2) - Twist命令参数
+    enable_twist_cmd: true
+    twist_cmd_topic: "~/twist_cmd"
+    
+    # 通道映射: channel_0~3 映射到 twist 的不同轴
+    # 可选值: "linear_x", "linear_y", "angular_z", "none"
+    channel_mapping: ["linear_x", "linear_y", "angular_z", "none"]
+    
+    # 通道最大值（归一化后的缩放系数）
+    channel_max: [1.0, 1.0, 1.0, 1.0]

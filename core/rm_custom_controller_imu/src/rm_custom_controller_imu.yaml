@@ -1,0 +1,82 @@
+rm_custom_controller_imu:
+
+  ref_topic: {
+    type: string,
+    description: "ROS topic for the referee system custom controller messages.",
+  }
+
+  watchdog_timeout: {
+    type: double,
+    default_value: 1.0,
+    description: "Watchdog timeout in seconds. If no command is received within this time, a warning will be issued.",
+    validation: {
+      gt<>: [0.0]
+    }
+  }
+
+  # ControlData1 (0xA1) parameters - TF2 transform
+  parent_frame: {
+    type: string,
+    description: "Parent frame ID for the TF2 transform (ControlData1).",
+  }
+
+  child_frame: {
+    type: string,
+    description: "Child frame ID for the TF2 transform (ControlData1).",
+  }
+
+  pose_topic: {
+    type: string,
+    default_value: "~/pose",
+    description: "ROS topic for pose (PoseStamped) corresponding to the TF2 transform.",
+  }
+
+  position_scale_x: {
+    type: double,
+    default_value: 1.0,
+    description: "Scale factor for X position coordinate.",
+  }
+
+  position_scale_y: {
+    type: double,
+    default_value: 1.0,
+    description: "Scale factor for Y position coordinate.",
+  }
+
+  position_scale_z: {
+    type: double,
+    default_value: 1.0,
+    description: "Scale factor for Z position coordinate.",
+  }
+
+  # ControlData2 (0xA2) parameters - Twist command
+  enable_twist_cmd: {
+    type: bool,
+    default_value: true,
+    description: "Enable twist command publishing from channel data (ControlData2).",
+  }
+
+  twist_cmd_topic: {
+    type: string,
+    default_value: "~/twist_cmd",
+    description: "ROS topic for twist velocity command (TwistStamped).",
+  }
+
+  channel_mapping: {
+    type: string_array,
+    default_value: ["linear_x", "linear_y", "angular_z", "none"],
+    description: "Mapping for each channel (0-3). Options: 'linear_x', 'linear_y', 'angular_z', 'none'. Length must be 4.",
+    validation: {
+      fixed_size<>: [4]
+    }
+  }
+
+  channel_max: {
+    type: double_array,
+    default_value: [1.0, 1.0, 1.0, 1.0],
+    description: "Maximum value for each channel output after normalization. Length must be 4.",
+    validation: {
+      fixed_size<>: [4],
+      element_bounds<>: [-100.0, 100.0]
+    }
+  }
