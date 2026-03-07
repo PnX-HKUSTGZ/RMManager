@@ -11,7 +11,7 @@
 - **功能**：
   - 发布 TF2 变换，将位置和姿态信息广播到 TF 树
   - 同时发布对应的 PoseStamped 消息
-- **特性**：支持位置坐标的独立缩放（X/Y/Z轴）
+- **特性**：支持位置坐标缩放+起始偏置（X/Y/Z轴）和姿态对齐偏置（欧拉角 XYZ）
 
 ### ControlData2 (0xA2) - 通道 + GPIO 数据
 - **数据结构**：包含4个通道 (channel_0~3, int8类型) 和 GPIO 状态字节
@@ -64,6 +64,21 @@ typedef struct {
 - `position_scale_x` (double, 默认: 1.0)：X轴位置缩放系数
 - `position_scale_y` (double, 默认: 1.0)：Y轴位置缩放系数
 - `position_scale_z` (double, 默认: 1.0)：Z轴位置缩放系数
+- `position_start_x` (double, 默认: 0.0)：X轴位置起始偏置
+- `position_start_y` (double, 默认: 0.0)：Y轴位置起始偏置
+- `position_start_z` (double, 默认: 0.0)：Z轴位置起始偏置
+- `orientation_offset_roll` (double, 默认: 0.0)：姿态对齐偏置 roll（弧度）
+- `orientation_offset_pitch` (double, 默认: 0.0)：姿态对齐偏置 pitch（弧度）
+- `orientation_offset_yaw` (double, 默认: 0.0)：姿态对齐偏置 yaw（弧度）
+
+位置变换公式：
+- `x_out = position_scale_x * x_in + position_start_x`
+- `y_out = position_scale_y * y_in + position_start_y`
+- `z_out = position_scale_z * z_in + position_start_z`
+
+姿态变换规则（本体坐标系，欧拉角顺序 `xyz`）：
+- `q_offset = qx(roll) * qy(pitch) * qz(yaw)`
+- `q_out = q_in * q_offset`
 
 ### ControlData2 (Twist) 参数
 - `enable_twist_cmd` (bool, 默认: true)：是否启用 Twist 命令发布
@@ -115,6 +130,12 @@ rm_custom_controller_imu:
     position_scale_x: 1.0
     position_scale_y: 1.0
     position_scale_z: 1.0
+    position_start_x: 0.0
+    position_start_y: 0.0
+    position_start_z: 0.0
+    orientation_offset_roll: 0.0
+    orientation_offset_pitch: 0.0
+    orientation_offset_yaw: 0.0
     
     # Twist 配置
     enable_twist_cmd: true

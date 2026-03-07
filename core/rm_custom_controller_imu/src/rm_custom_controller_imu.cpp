@@ -1,7 +1,47 @@
 #include "rm_custom_controller_imu/rm_custom_controller_imu.hpp"
+#include <cmath>
 
 namespace rm_custom_controller_imu
 {
+
+namespace
+{
+
+using QuaternionArray = std::array<double, 4>;  // [w, x, y, z]
+constexpr double kQuaternionNormEpsilon = 1e-12;
+
+QuaternionArray multiply_quaternion(const QuaternionArray & a, const QuaternionArray & b)
+{
+    return {
+        a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+        a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+        a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+        a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]};
+}
+
+QuaternionArray quaternion_from_euler_xyz(
+    const double roll,
+    const double pitch,
+    const double yaw)
+{
+    const double half_roll = roll * 0.5;
+    const double half_pitch = pitch * 0.5;
+    const double half_yaw = yaw * 0.5;
+
+    const QuaternionArray qx = {std::cos(half_roll), std::sin(half_roll), 0.0, 0.0};
+    const QuaternionArray qy = {std::cos(half_pitch), 0.0, std::sin(half_pitch), 0.0};
+    const QuaternionArray qz = {std::cos(half_yaw), 0.0, 0.0, std::sin(half_yaw)};
+
+    // Intrinsic XYZ in body frame -> q_offset = qx * qy * qz
+    return multiply_quaternion(multiply_quaternion(qx, qy), qz);
+}
+
+double quaternion_norm(const QuaternionArray & q)
+{
+    return std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+}
+
+}  // namespace
 
 RmCustomControllerImu::RmCustomControllerImu(const rclcpp::NodeOptions & options)
 : Node("rm_custom_controller_imu", options)
@@ -21,6 +61,12 @@ RmCustomControllerImu::RmCustomControllerImu(const rclcpp::NodeOptions & options
     position_scale_x_ = params_.position_scale_x;
     position_scale_y_ = params_.position_scale_y;
     position_scale_z_ = params_.position_scale_z;
+    position_start_x_ = params_.position_start_x;
+    position_start_y_ = params_.position_start_y;
+    position_start_z_ = params_.position_start_z;
+    orientation_offset_roll_ = params_.orientation_offset_roll;
+    orientation_offset_pitch_ = params_.orientation_offset_pitch;
+    orientation_offset_yaw_ = params_.orientation_offset_yaw;
     
     // ControlData2 (Twist) 参数
     enable_twist_cmd_ = params_.enable_twist_cmd;
@@ -48,6 +94,10 @@ RmCustomControllerImu::RmCustomControllerImu(const rclcpp::NodeOptions & options
     RCLCPP_INFO(this->get_logger(), "  Pose topic: %s", pose_topic_.c_str());
     RCLCPP_INFO(this->get_logger(), "  Position scale: X=%.3f, Y=%.3f, Z=%.3f", 
                 position_scale_x_, position_scale_y_, position_scale_z_);
+    RCLCPP_INFO(this->get_logger(), "  Position start: X=%.3f, Y=%.3f, Z=%.3f",
+                position_start_x_, position_start_y_, position_start_z_);
+    RCLCPP_INFO(this->get_logger(), "  Orientation offset (rad, xyz): roll=%.3f, pitch=%.3f, yaw=%.3f",
+                orientation_offset_roll_, orientation_offset_pitch_, orientation_offset_yaw_);
     RCLCPP_INFO(this->get_logger(), "--- ControlData2 (0xA2) Twist Parameters ---");
     RCLCPP_INFO(this->get_logger(), "  Twist command enabled: %s", enable_twist_cmd_ ? "true" : "false");
     if (enable_twist_cmd_) {
@@ -147,6 +197,15 @@ void RmCustomControllerImu::ref_topic_callback(const rm_message::msg::CustomCont
 
 void RmCustomControllerImu::process_control_data1(const ControlData1& data)
 {
+    // 四元数中任一分量为 NaN 时，丢弃该包避免发布非法姿态
+    if (std::isnan(data.qw) || std::isnan(data.qx) || std::isnan(data.qy) || std::isnan(data.qz)) {
+        RCLCPP_WARN_THROTTLE(
+            this->get_logger(), *this->get_clock(), 2000,
+            "Received NaN quaternion, skip publishing TF and Pose (qw=%.3f, qx=%.3f, qy=%.3f, qz=%.3f)",
+            data.qw, data.qx, data.qy, data.qz);
+        return;
+    }
+
     // 构造TF2变换消息
     geometry_msgs::msg::TransformStamped transform_stamped;
 
@@ -155,16 +214,35 @@ void RmCustomControllerImu::process_control_data1(const ControlData1& data)
     transform_stamped.header.frame_id = parent_frame_;
     transform_stamped.child_frame_id = child_frame_;
 
-    // 设置位置（应用缩放）
-    transform_stamped.transform.translation.x = data.pos_x * position_scale_x_;
-    transform_stamped.transform.translation.y = data.pos_y * position_scale_y_;
-    transform_stamped.transform.translation.z = data.pos_z * position_scale_z_;
+    // 设置位置（缩放后叠加起始偏置）
+    transform_stamped.transform.translation.x = data.pos_x * position_scale_x_ + position_start_x_;
+    transform_stamped.transform.translation.y = data.pos_y * position_scale_y_ + position_start_y_;
+    transform_stamped.transform.translation.z = data.pos_z * position_scale_z_ + position_start_z_;
 
-    // 设置旋转（四元数）
-    transform_stamped.transform.rotation.w = data.qw;
-    transform_stamped.transform.rotation.x = data.qx;
-    transform_stamped.transform.rotation.y = data.qy;
-    transform_stamped.transform.rotation.z = data.qz;
+    // 设置旋转（输入四元数右乘本体坐标系下 XYZ 欧拉角偏置）
+    const QuaternionArray q_in = {data.qw, data.qx, data.qy, data.qz};
+    const QuaternionArray q_offset = quaternion_from_euler_xyz(
+        orientation_offset_roll_, orientation_offset_pitch_, orientation_offset_yaw_);
+    QuaternionArray q_out = multiply_quaternion(q_in, q_offset);
+
+    const double q_out_norm = quaternion_norm(q_out);
+    if (!std::isfinite(q_out_norm) || q_out_norm < kQuaternionNormEpsilon) {
+        RCLCPP_WARN_THROTTLE(
+            this->get_logger(), *this->get_clock(), 2000,
+            "Invalid transformed quaternion, skip publishing TF and Pose (norm=%.6f)",
+            q_out_norm);
+        return;
+    }
+
+    q_out[0] /= q_out_norm;
+    q_out[1] /= q_out_norm;
+    q_out[2] /= q_out_norm;
+    q_out[3] /= q_out_norm;
+
+    transform_stamped.transform.rotation.w = q_out[0];
+    transform_stamped.transform.rotation.x = q_out[1];
+    transform_stamped.transform.rotation.y = q_out[2];
+    transform_stamped.transform.rotation.z = q_out[3];
 
     // 发布TF2变换
     tf_broadcaster_->sendTransform(transform_stamped);
@@ -191,7 +269,10 @@ void RmCustomControllerImu::process_control_data1(const ControlData1& data)
                  transform_stamped.transform.translation.x,
                  transform_stamped.transform.translation.y,
                  transform_stamped.transform.translation.z,
-                 data.qw, data.qx, data.qy, data.qz);
+                 transform_stamped.transform.rotation.w,
+                 transform_stamped.transform.rotation.x,
+                 transform_stamped.transform.rotation.y,
+                 transform_stamped.transform.rotation.z);
 }
 
 void RmCustomControllerImu::process_control_data2(const ControlData2& data)

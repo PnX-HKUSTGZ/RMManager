@@ -49,6 +49,42 @@ rm_custom_controller_imu:
     description: "Scale factor for Z position coordinate.",
   }
 
+  position_start_x: {
+    type: double,
+    default_value: 0.0,
+    description: "Offset for X position coordinate after scaling.",
+  }
+
+  position_start_y: {
+    type: double,
+    default_value: 0.0,
+    description: "Offset for Y position coordinate after scaling.",
+  }
+
+  position_start_z: {
+    type: double,
+    default_value: 0.0,
+    description: "Offset for Z position coordinate after scaling.",
+  }
+
+  orientation_offset_roll: {
+    type: double,
+    default_value: 0.0,
+    description: "Orientation alignment roll offset (rad), applied in body frame with XYZ order.",
+  }
+
+  orientation_offset_pitch: {
+    type: double,
+    default_value: 0.0,
+    description: "Orientation alignment pitch offset (rad), applied in body frame with XYZ order.",
+  }
+
+  orientation_offset_yaw: {
+    type: double,
+    default_value: 0.0,
+    description: "Orientation alignment yaw offset (rad), applied in body frame with XYZ order.",
+  }
+
   # ControlData2 (0xA2) parameters - Twist command
   enable_twist_cmd: {
     type: bool,

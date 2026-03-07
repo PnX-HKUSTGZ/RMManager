@@ -80,6 +80,12 @@ private:
     double position_scale_x_;
     double position_scale_y_;
     double position_scale_z_;
+    double position_start_x_;
+    double position_start_y_;
+    double position_start_z_;
+    double orientation_offset_roll_;
+    double orientation_offset_pitch_;
+    double orientation_offset_yaw_;
 
     // Twist命令相关参数 (ControlData2)
     bool enable_twist_cmd_;

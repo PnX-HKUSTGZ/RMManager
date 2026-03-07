@@ -7,12 +7,18 @@ rm_custom_controller_imu:
     watchdog_timeout: 1.0
     
     # ControlData1 (0xA1) - TF2变换参数
-    parent_frame: "world"
-    child_frame: "controller_imu"
-    pose_topic: "~/pose"
-    position_scale_x: 1.0
-    position_scale_y: 1.0
-    position_scale_z: 1.0
+    parent_frame: "base_link"
+    child_frame: "~/controller_imu"
+    pose_topic: "/custom_control/left_arm/pose_command"
+    position_scale_x: 0.3
+    position_scale_y: 0.3
+    position_scale_z: 0.3
+    position_start_x: 0.09
+    position_start_y: 0.20
+    position_start_z: 0.35
+    orientation_offset_roll: 1.5707963
+    orientation_offset_pitch: 3.1415926
+    orientation_offset_yaw: 0.0
     
     # ControlData2 (0xA2) - Twist命令参数
     enable_twist_cmd: true
