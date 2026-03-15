@@ -69,6 +69,10 @@ private:
     std::vector<std::string> left_joint_names;
     // 右机械臂关节名称，长度为6
     std::vector<std::string> right_joint_names;
+    // 左机械臂关节反转标志，长度为6
+    std::vector<bool> left_joint_reverse;
+    // 右机械臂关节反转标志，长度为6
+    std::vector<bool> right_joint_reverse;
 
     // 裁判系统的自定义数据topic
     std::string ref_topic;

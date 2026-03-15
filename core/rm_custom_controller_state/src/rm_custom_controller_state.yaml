@@ -15,9 +15,27 @@ rm_custom_controller_state:
     description: "List of joint names for the left arm. 长度为 6。",
   }
 
+  left_joint_reverse: {
+    type: bool_array,
+    default_value: [false, false, false, false, false, false],
+    description: "Reverse flag for each left arm joint. 长度为 6。",
+    validation: {
+      fixed_size<>: [6]
+    }
+  }
+
   right_joint_names: {
     type: string_array,
     description: "List of joint names for the right arm. 长度为 6。",
+  }
+
+  right_joint_reverse: {
+    type: bool_array,
+    default_value: [false, false, false, false, false, false],
+    description: "Reverse flag for each right arm joint. 长度为 6。",
+    validation: {
+      fixed_size<>: [6]
+    }
   }
 
   ref_topic: {

@@ -13,6 +13,8 @@ rm_custom_controller_state:
       - "control_j4"
       - "control_j5"
 
+    left_joint_reverse: [false, false, false, false, false, false]
+
     right_joint_names:
       - "control_j0"
       - "control_j1"
@@ -20,6 +22,8 @@ rm_custom_controller_state:
       - "control_j3"
       - "control_j4"
       - "control_j5"
+
+    right_joint_reverse: [false, false, false, false, false, false]
 
     ref_topic: /rm_manager/custom_controller
     

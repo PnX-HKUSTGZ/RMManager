@@ -29,6 +29,8 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     right_arm_state_topic = params_.right_arm_state_topic;
     left_joint_names = params_.left_joint_names;
     right_joint_names = params_.right_joint_names;
+    left_joint_reverse = params_.left_joint_reverse;
+    right_joint_reverse = params_.right_joint_reverse;
     ref_topic = params_.ref_topic;
     watchdog_timeout_ = params_.watchdog_timeout;
 
@@ -41,6 +43,14 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
         RCLCPP_ERROR(this->get_logger(), "Right joint names size is not 6!");
         throw std::runtime_error("Right joint names size is not 6!");
     }
+    if (left_joint_reverse.size() != JOINT_NUM) {
+        RCLCPP_ERROR(this->get_logger(), "Left joint reverse flags size is not 6!");
+        throw std::runtime_error("Left joint reverse flags size is not 6!");
+    }
+    if (right_joint_reverse.size() != JOINT_NUM) {
+        RCLCPP_ERROR(this->get_logger(), "Right joint reverse flags size is not 6!");
+        throw std::runtime_error("Right joint reverse flags size is not 6!");
+    }
 
     // 输出所有参数
     RCLCPP_INFO(this->get_logger(), "Left arm state topic: %s", left_arm_state_topic.c_str());
@@ -52,6 +62,14 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     RCLCPP_INFO(this->get_logger(), "Right joint names: ");
     for (const auto& name : right_joint_names) {
         RCLCPP_INFO(this->get_logger(), "  %s", name.c_str());
+    }
+    RCLCPP_INFO(this->get_logger(), "Left joint reverse flags:");
+    for (size_t i = 0; i < JOINT_NUM; ++i) {
+        RCLCPP_INFO(this->get_logger(), "  left_j%zu: %s", i, left_joint_reverse[i] ? "true" : "false");
+    }
+    RCLCPP_INFO(this->get_logger(), "Right joint reverse flags:");
+    for (size_t i = 0; i < JOINT_NUM; ++i) {
+        RCLCPP_INFO(this->get_logger(), "  right_j%zu: %s", i, right_joint_reverse[i] ? "true" : "false");
     }
     RCLCPP_INFO(this->get_logger(), "Ref topic: %s", ref_topic.c_str());
     RCLCPP_INFO(this->get_logger(), "Watchdog timeout: %.2f seconds", watchdog_timeout_);
@@ -183,7 +201,8 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
     left_joint_state_msg->velocity.resize(JOINT_NUM, 0.0);
     left_joint_state_msg->effort.resize(JOINT_NUM, 0.0);
     for (size_t i = 0; i < JOINT_NUM; ++i) {
-        left_joint_state_msg->position[i] = uint_to_float(control_data.rotor_angles[i], POS_MIN, POS_MAX, BITS);
+        float position = uint_to_float(control_data.rotor_angles[i], POS_MIN, POS_MAX, BITS);
+        left_joint_state_msg->position[i] = left_joint_reverse[i] ? -position : position;
     }
     // 输出 left_joint_state_msg
     RCLCPP_DEBUG(this->get_logger(), "Publishing left arm joint states:");
@@ -200,7 +219,8 @@ void RmCustomControllerState::ref_topic_callback(const rm_message::msg::CustomCo
     right_joint_state_msg->velocity.resize(JOINT_NUM, 0.0);
     right_joint_state_msg->effort.resize(JOINT_NUM, 0.0);
     for (size_t i = 0; i < JOINT_NUM; ++i) {
-        right_joint_state_msg->position[i] = uint_to_float(control_data.rotor_angles[i + 6], POS_MIN, POS_MAX, BITS);
+        float position = uint_to_float(control_data.rotor_angles[i + 6], POS_MIN, POS_MAX, BITS);
+        right_joint_state_msg->position[i] = right_joint_reverse[i] ? -position : position;
     }
     // 输出 right_joint_state_msg
     RCLCPP_DEBUG(this->get_logger(), "Publishing right arm joint states:");
