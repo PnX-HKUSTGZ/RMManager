@@ -44,7 +44,29 @@ install(TARGETS remote_controller
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
+
+  ament_add_gtest(test_remote_controller
+    test/test_remote_controller.cpp
+    src/remote_controller.cpp
+  )
+
+  if(TARGET test_remote_controller)
+    target_include_directories(test_remote_controller PRIVATE
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      $<INSTALL_INTERFACE:include>)
+    target_link_libraries(test_remote_controller
+      remote_controller_parameters
+    )
+    ament_target_dependencies(test_remote_controller
+      rclcpp
+      rm_message
+      std_msgs
+      geometry_msgs
+    )
+  endif()
+
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)

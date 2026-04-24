@@ -50,6 +50,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RobotCustomData.msg"
   "msg/RobotCustomDataLarge.msg"
   "msg/ClientCustomCommand.msg"
+  "srv/GetCurrentChassisControlSource.srv"
+  "srv/GetChassisControlSourceList.srv"
+  "srv/SetCurrentChassisControlSource.srv"
 )
 
 if(BUILD_TESTING)

@@ -1,11 +1,19 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "rm_message/msg/remote_control.hpp"
+#include "rm_message/srv/get_chassis_control_source_list.hpp"
+#include "rm_message/srv/get_current_chassis_control_source.hpp"
+#include "rm_message/srv/set_current_chassis_control_source.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 
 #include "std_msgs/msg/bool.hpp"
 #include <remote_controller/remote_controller_parameters.hpp>
+
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #ifndef RMREMOTE_CONTROLLER_HPP
 #define RMREMOTE_CONTROLLER_HPP
@@ -143,10 +151,11 @@ private:
     bool content_;
 };
 
-class RemoteController : public rclcpp::Node{
+class RemoteController : public rclcpp::Node {
 public:
-    RemoteController(std::string  name = "remote_controller");
+    explicit RemoteController(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
     ~RemoteController();
+
 private:
     // Parameter handler
     std::shared_ptr<remote_controller::ParamListener> param_listener_;
@@ -165,9 +174,16 @@ private:
     // Bridge velocity subscribers
     std::vector<rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr> bridge_vel_subs_;
 
+    rclcpp::Service<rm_message::srv::GetCurrentChassisControlSource>::SharedPtr
+        get_current_chassis_control_source_service_;
+    rclcpp::Service<rm_message::srv::GetChassisControlSourceList>::SharedPtr
+        get_chassis_control_source_list_service_;
+    rclcpp::Service<rm_message::srv::SetCurrentChassisControlSource>::SharedPtr
+        set_current_chassis_control_source_service_;
+
     // Control source management
-    int current_control_source_index_ = 0;  // 0=remote, 1=keyboard, 2+=bridge
-    int total_control_sources_ = 2;         // remote + keyboard + bridge count
+    std::vector<std::string> control_sources_;
+    size_t current_control_source_index_ = 0;
 
     // Watchdog timer
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
@@ -186,9 +202,44 @@ private:
 
     void sendEnableArm(const rm_message::msg::RemoteControl::SharedPtr msg);
 
+    void initializeControlSources();
+
     void initializeBridgeTopics();
 
     void sendBridgeVel(const geometry_msgs::msg::TwistStamped::SharedPtr msg, size_t bridge_index);
+
+    const std::vector<std::string> & getControlSources() const;
+
+    std::string getCurrentControlSourceName() const;
+
+    size_t getCurrentControlSourceIndex() const;
+
+    int findControlSourceIndex(const std::string & source) const;
+
+    bool setCurrentControlSourceIndex(size_t index, const std::string & reason);
+
+    bool setCurrentControlSourceName(
+        const std::string & source,
+        const std::string & reason,
+        std::string * error_message = nullptr);
+
+    void cycleToNextControlSource(const std::string & reason);
+
+    void markControlSourceActivity();
+
+    void createControlSourceServices();
+
+    void handleGetCurrentChassisControlSource(
+        const std::shared_ptr<rm_message::srv::GetCurrentChassisControlSource::Request> request,
+        std::shared_ptr<rm_message::srv::GetCurrentChassisControlSource::Response> response);
+
+    void handleGetChassisControlSourceList(
+        const std::shared_ptr<rm_message::srv::GetChassisControlSourceList::Request> request,
+        std::shared_ptr<rm_message::srv::GetChassisControlSourceList::Response> response);
+
+    void handleSetCurrentChassisControlSource(
+        const std::shared_ptr<rm_message::srv::SetCurrentChassisControlSource::Request> request,
+        std::shared_ptr<rm_message::srv::SetCurrentChassisControlSource::Response> response);
 
     float last_x_ = 0;
     float last_y_ = 0;
