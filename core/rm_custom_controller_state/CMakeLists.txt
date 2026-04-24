@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(generate_parameter_library REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rm_message REQUIRED)
@@ -32,6 +33,7 @@ add_executable(rm_custom_controller_state
 )
 
 ament_target_dependencies(rm_custom_controller_state_component
+  geometry_msgs
   rclcpp
   std_msgs
   rm_message
@@ -47,7 +49,7 @@ target_link_libraries(rm_custom_controller_state
   rm_custom_controller_state_component
 )
 
-rclcpp_components_register_nodes(rm_custom_controller_state_component 
+rclcpp_components_register_nodes(rm_custom_controller_state_component
   "rm_custom_controller_state::RmCustomControllerState"
 )
 pluginlib_export_plugin_description_file(rclcpp_components rm_custom_controller_state.xml)
@@ -76,7 +78,26 @@ install(DIRECTORY test/
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
+
+  ament_add_gtest(test_rm_custom_controller_state
+    test/test_rm_custom_controller_state.cpp
+  )
+
+  if(TARGET test_rm_custom_controller_state)
+    target_link_libraries(test_rm_custom_controller_state
+      rm_custom_controller_state_component
+    )
+    ament_target_dependencies(test_rm_custom_controller_state
+      geometry_msgs
+      rclcpp
+      rm_message
+      sensor_msgs
+      std_msgs
+    )
+  endif()
+
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)

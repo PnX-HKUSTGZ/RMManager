@@ -1,29 +1,18 @@
 rm_custom_controller_state:
   ros__parameters:
 
-    left_arm_state_topic: "/left_custom_controller/joint_states"
+    arm_state_topic: "/custom_controller/joint_states"
 
-    right_arm_state_topic: "/right_custom_controller/joint_states"
-
-    left_joint_names:
+    joint_names:
       - "control_j0"
       - "control_j1"
       - "control_j2"
       - "control_j3"
       - "control_j4"
       - "control_j5"
+      - "control_j6"
 
-    left_joint_reverse: [false, false, false, false, false, false]
-
-    right_joint_names:
-      - "control_j0"
-      - "control_j1"
-      - "control_j2"
-      - "control_j3"
-      - "control_j4"
-      - "control_j5"
-
-    right_joint_reverse: [false, false, false, false, false, false]
+    joint_reverse: [false, false, false, false, false, false, false]
 
     ref_topic: /rm_manager/custom_controller
     
