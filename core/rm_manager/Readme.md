@@ -58,3 +58,37 @@ ros2 run rm_manager rm_manager --ros-args --params-file params.yaml
 ```
 
 ## 消息传递
+
+`rm_manager` 当前只对“机器人入站”协议做 typed topic 解析，其他合法但不属于机器人入站的数据会继续发布到原始观测 topic。
+
+### 原始观测
+
+- `/<node_name>/all_receive_data`
+  - 串口每次收到的原始字节流，`cmd_id = 0xFFFF`
+- `/<node_name>/all_messages`
+  - 所有通过标准 `0xA5` 帧校验的数据，按 `GeneralMessage` 转发
+- `/<node_name>/unknown_command`
+  - 合法帧，但当前链路下不属于机器人入站 typed 协议的数据
+
+### 裁判系统串口 typed topics
+
+- `game_status`, `game_result`, `robot_hp`
+- `field_events`, `referee_warning`, `dart_info`
+- `robot_status`, `buffer_heat`, `robot_position`, `robot_buffs`
+- `hurt_event`, `shoot_data`, `ammo_allowance`, `rfid_status`, `dart_cmd`
+- `ground_positions`, `radar_mark`, `sentry_decision`, `radar_decision`
+- `robot_interaction`, `map_downlink`
+
+### 图传串口 typed topics
+
+- `custom_controller`
+- `client_custom_command`
+- `set_vtm_channel`
+- `query_vtm_channel`
+
+### V1.3.0 对齐说明
+
+- 已停用协议删除项 `0x0304`
+- 已停用旧图传私有遥控帧 `0xA9 0x53`
+- 不再发布 `/rm_manager/remote_control`
+- `0x0305/0x0306/0x0307/0x0308/0x0309/0x0310` 若出现在串口上，只会进入原始观测 topic，不再发布 typed topic

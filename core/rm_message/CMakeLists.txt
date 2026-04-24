@@ -49,6 +49,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/CustomString.msg"
   "msg/RobotCustomData.msg"
   "msg/RobotCustomDataLarge.msg"
+  "msg/ClientCustomCommand.msg"
 )
 
 if(BUILD_TESTING)

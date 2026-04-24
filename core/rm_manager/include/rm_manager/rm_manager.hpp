@@ -3,66 +3,18 @@
 
 #include "rm_message/msg/general_message.hpp"
 #include "rm_message/msg/send_message.hpp"
-#include "rm_message/msg/remote_control.hpp"
 
+#include "rm_manager/frame_parser.hpp"
 #include "rm_manager/uart_driver.hpp"
 #include "rm_manager/msg_publisher.hpp"
 
-#include <queue>
 #include <atomic>
 
 # ifndef RM_MANAGER_HPP
 # define RM_MANAGER_HPP
 
-namespace RMManager {
-
-// 帧头定义
-struct FrameHeader {
-    uint8_t sof;
-    uint16_t data_length;
-    uint8_t seq;
-    uint8_t crc8;
-}__attribute__((packed));
-
-struct RemoteControlData{
-    uint8_t head1;
-    uint8_t head2;
-    uint16_t chanal0 : 11;
-    uint16_t chanal1 : 11;
-    uint16_t chanal2 : 11;
-    uint16_t chanal3 : 11;
-    uint8_t cut : 2;
-    uint8_t stop : 1;
-    uint8_t keyl : 1;
-    uint8_t keyr : 1;
-    uint16_t wheel : 11;
-    uint8_t keyb : 1;
-    int16_t mousex : 16;
-    int16_t mousey : 16;
-    int16_t mousez : 16;
-    uint8_t pressl : 2;
-    uint8_t pressr : 2;
-    uint8_t pressmid : 2;
-    struct{
-        uint8_t w : 1;
-        uint8_t s : 1;
-        uint8_t a : 1;
-        uint8_t d : 1;
-        uint8_t shift : 1;
-        uint8_t ctrl : 1;
-        uint8_t q : 1;
-        uint8_t e : 1;
-        uint8_t r : 1;
-        uint8_t f : 1;
-        uint8_t g : 1;
-        uint8_t z : 1;
-        uint8_t x : 1;
-        uint8_t c : 1;
-        uint8_t v : 1;
-        uint8_t b : 1;
-    }keyboards;
-    uint16_t crc : 16;
-}__attribute__((packed));
+namespace RMManager
+{
 
 class RMManagerNode : public rclcpp::Node {
 
@@ -71,7 +23,6 @@ public:
     ~RMManagerNode();
 
 private:
-
     // 图传链路
     std::shared_ptr<SerialCommunicator> image_uart_;
 
@@ -80,11 +31,15 @@ private:
 
     /**
      * @brief 处理接受到的数据的回调函数，分割数据
-     * 
+     *
      * @param data  接收到的数据
+     * @param link_type 当前串口所属链路
      * @param link_status 链路状态的标志位
      */
-    void _read_callback(const std::vector<uint8_t>& data, std::atomic<bool>& link_status);
+    void _read_callback(
+        const std::vector<uint8_t> & data,
+        LinkType link_type,
+        std::atomic<bool> & link_status);
 
     // 图传链路是否发送了消息
     std::atomic<bool> image_send_{true};
@@ -102,9 +57,6 @@ private:
     // 裁判系统链路状态的pub
     std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Bool>> referee_status_pub_;
 
-    // 遥控器数据的pub
-    std::shared_ptr<rclcpp::Publisher<rm_message::msg::RemoteControl>> remoto_control_pub_;
-
     // 消息发布管理器 - 处理所有协议消息的发布
     std::unique_ptr<MsgPublisher> msg_publisher_;
 
@@ -117,22 +69,11 @@ private:
 
     /**
      * @brief 处理接受到的数据
-     * 
+     *
      */
     void _send_sub_callback(const rm_message::msg::SendMessage::SharedPtr msg);
 
-    /**
-     * @brief 处理来自图传的特殊的消息
-     * 
-     * @param data 
-     * @return true 
-     * @return false 
-     */
-    bool _process_image_own_message(const std::vector<uint8_t>& data);
-
 }; // class RMManagerNode
-
-rm_message::msg::RemoteControl _remote_control_data_to_msg(const RemoteControlData& data);
 
 } // namespace RMManager
 

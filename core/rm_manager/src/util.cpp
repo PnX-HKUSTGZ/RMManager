@@ -9,24 +9,25 @@
 /**
  * @brief CRC16 Caculation function
  * @param[in] pchMessage : Data to Verify,
- * @param[in] dwLength : Stream length = Data 
+ * @param[in] dwLength : Stream length = Data
  * @param[in] wCRC : CRC16 init value(default : 0xFFFF)
  * @return : CRC16 checksum
  */
 uint16_t Get_CRC16_Check_Sum(const uint8_t *pchMessage, uint32_t dwLength, uint16_t wCRC)
 {
-  uint8_t ch_data;
+    uint8_t ch_data;
 
-  if (pchMessage == nullptr)
-    return 0xFFFF;
-  while (dwLength--)
-  {
-    ch_data = *pchMessage++;
-    (wCRC) =
-        ((uint16_t)(wCRC) >> 8) ^ W_CRC16_TABLE[((uint16_t)(wCRC) ^ (uint16_t)(ch_data)) & 0x00ff];
-  }
+    if (pchMessage == nullptr) {
+        return 0xFFFF;
+    }
+    while (dwLength--) {
+        ch_data = *pchMessage++;
+        (wCRC) =
+          ((uint16_t)(wCRC) >>
+          8) ^ W_CRC16_TABLE[((uint16_t)(wCRC) ^ (uint16_t)(ch_data)) & 0x00ff];
+    }
 
-  return wCRC;
+    return wCRC;
 }
 
 /**
@@ -37,15 +38,16 @@ uint16_t Get_CRC16_Check_Sum(const uint8_t *pchMessage, uint32_t dwLength, uint1
  */
 uint32_t Verify_CRC16_Check_Sum(const uint8_t *pchMessage, uint32_t dwLength)
 {
-  uint16_t w_expected = 0;
+    uint16_t w_expected = 0;
 
-  if ((pchMessage == nullptr) || (dwLength <= 2))
-    return false;
+    if ((pchMessage == nullptr) || (dwLength <= 2)) {
+        return false;
+    }
 
-  w_expected = Get_CRC16_Check_Sum(pchMessage, dwLength - 2, CRC16_INIT);
-  return (
-      (w_expected & 0xff) == pchMessage[dwLength - 2] &&
-      ((w_expected >> 8) & 0xff) == pchMessage[dwLength - 1]);
+    w_expected = Get_CRC16_Check_Sum(pchMessage, dwLength - 2, CRC16_INIT);
+    return
+        (w_expected & 0xff) == pchMessage[dwLength - 2] &&
+        ((w_expected >> 8) & 0xff) == pchMessage[dwLength - 1];
 }
 
 /**
@@ -56,59 +58,58 @@ uint32_t Verify_CRC16_Check_Sum(const uint8_t *pchMessage, uint32_t dwLength)
  */
 void Append_CRC16_Check_Sum(uint8_t *pchMessage, uint32_t dwLength)
 {
-  uint16_t w_crc = 0;
+    uint16_t w_crc = 0;
 
-  if ((pchMessage == nullptr) || (dwLength <= 2))
-    return;
+    if ((pchMessage == nullptr) || (dwLength <= 2)) {
+        return;
+    }
 
-  w_crc = Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(pchMessage), dwLength - 2, CRC16_INIT);
+    w_crc = Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(pchMessage), dwLength - 2, CRC16_INIT);
 
-  pchMessage[dwLength - 2] = (uint8_t)(w_crc & 0x00ff);
-  pchMessage[dwLength - 1] = (uint8_t)((w_crc >> 8) & 0x00ff);
+    pchMessage[dwLength - 2] = (uint8_t)(w_crc & 0x00ff);
+    pchMessage[dwLength - 1] = (uint8_t)((w_crc >> 8) & 0x00ff);
 }
 
 
 uint8_t Get_CRC8_Check_Sum(const uint8_t *pchMessage, uint16_t dwLength, uint8_t ucCRC8)
 {
-  uint8_t ucIndex;
+    uint8_t ucIndex;
 
-  while (dwLength--)
-  {
-    ucIndex = ucCRC8 ^ (*pchMessage++);
-    ucCRC8 = W_CRC8_TABLE[ucIndex];
-  }
-  return ucCRC8;
+    while (dwLength--) {
+        ucIndex = ucCRC8 ^ (*pchMessage++);
+        ucCRC8 = W_CRC8_TABLE[ucIndex];
+    }
+    return ucCRC8;
 }
 
 void Append_CRC8_Check_Sum(uint8_t *pchMessage, uint16_t dwLength)
 {
-  uint8_t ucCRC = 0;
+    uint8_t ucCRC = 0;
 
-  if (pchMessage == 0 || dwLength <= 2)
-  {
-    return;
-  }
+    if (pchMessage == 0 || dwLength <= 2) {
+        return;
+    }
 
-  ucCRC = Get_CRC8_Check_Sum((uint8_t *)pchMessage, dwLength - 1, CRC8_INIT);
+    ucCRC = Get_CRC8_Check_Sum((uint8_t *)pchMessage, dwLength - 1, CRC8_INIT);
 
-  pchMessage[dwLength - 1] = ucCRC;
+    pchMessage[dwLength - 1] = ucCRC;
 }
 
 uint32_t Verify_CRC8_Check_Sum(const uint8_t *pchMessage, uint16_t dwLength)
 {
-  uint8_t ucExpected = 0;
+    uint8_t ucExpected = 0;
 
-  if (pchMessage == 0 || dwLength <= 2)
-  {
-    return 0;
-  }
+    if (pchMessage == 0 || dwLength <= 2) {
+        return 0;
+    }
 
-  ucExpected = Get_CRC8_Check_Sum(pchMessage, dwLength - 1, CRC8_INIT);
+    ucExpected = Get_CRC8_Check_Sum(pchMessage, dwLength - 1, CRC8_INIT);
 
-  return (ucExpected == pchMessage[dwLength - 1]);
+    return  ucExpected == pchMessage[dwLength - 1];
 }
 
-std::string uint16_to_hex_string(uint16_t value) {
+std::string uint16_to_hex_string(uint16_t value)
+{
     std::stringstream ss;
 
     // 1. 设置输出为十六进制
@@ -129,7 +130,8 @@ std::string uint16_to_hex_string(uint16_t value) {
     return ss.str();
 }
 
-std::string uint16_to_hex_string_with_prefix(uint16_t value) {
+std::string uint16_to_hex_string_with_prefix(uint16_t value)
+{
     std::stringstream ss;
     ss << "0x" // 添加十六进制前缀
        << std::hex

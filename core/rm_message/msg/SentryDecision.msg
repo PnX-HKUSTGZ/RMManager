@@ -27,10 +27,16 @@ uint16 immediate_revive_coin_cost
 
 # --- offset 4, 2字节 ---
 
-# bit 0-1 (sentry_info_2): 哨兵当前姿态 (2位)
+# bit 0 (sentry_info_2): 哨兵当前是否处于脱战状态
+bool is_out_of_combat
+
+# bit 1-11 (sentry_info_2): 队伍 17mm 允许发弹量的剩余可兑换数
+uint16 remaining_exchangeable_17mm
+
+# bit 12-13 (sentry_info_2): 哨兵当前姿态 (2位)
 # 1:进攻姿态, 2:防御姿态, 3:移动姿态
 uint8 sentry_attitude
 
-# bit 2 (sentry_info_2): 己方能量机关是否能够被进入在激活状态
+# bit 14 (sentry_info_2): 己方能量机关是否能够被进入在激活状态
 # 1:当前可激活, 0:不可激活
 bool energy_gear_available

@@ -47,14 +47,14 @@ bool terrain_crossing_road_enemy_above
 bool own_fort
 # bit 18: 己方前哨站增益点
 bool own_outpost
-# bit 19: 己方与敌对区重叠的外部区/RMUL补给区
-bool own_supply_area
-# bit 20: 己方与敌对区重叠的外部区
-bool own_overlap_zone
-# bit 21: 己方连续增益点
-bool own_continuous
-# bit 22: 对方连续增益点
-bool enemy_continuous
+# bit 19: 己方与资源区不重叠的补给区 / RMUL 补给区
+bool own_supply_area_non_overlap
+# bit 20: 己方与资源区重叠的补给区
+bool own_supply_area_overlap
+# bit 21: 己方装配增益点
+bool own_assembly_gain
+# bit 22: 对方装配增益点
+bool enemy_assembly_gain
 # bit 23: 中央增益点（仅 RMUL 适用）
 bool center_rmul
 # bit 24: 对方堡垒增益点
@@ -62,24 +62,28 @@ bool enemy_fort
 # bit 25: 对方前哨站增益点
 bool enemy_outpost
 
-# bit 26-27: 己方地形跨越增益点（隧道）（靠近己方一侧公路区下方）
 # bit 26: 己方地形跨越增益点（隧道）（靠近己方一侧公路区下方）
-bool terrain_crossing_tunnel_own_near_below
-# bit 27: 己方地形跨越增益点（隧道）（靠近己方一侧公路区上方）
-bool terrain_crossing_tunnel_own_near_above
-# bit 28-29: 己方地形跨越增益点（隧道）（靠近己方梯形高地区收尾处）
-# bit 28: 己方地形跨越增益点（隧道）（靠近己方梯形高地区收尾处）
-bool terrain_crossing_tunnel_own_trapezoid_start
-# bit 29: 己方地形跨越增益点（隧道）（靠近己方梯形高地区首处）
-bool terrain_crossing_tunnel_own_trapezoid_end
-# bit 30-31: 对方地形跨越增益点（隧道）（靠近对方一侧公路区下方）
-# bit 30: 对方地形跨越增益点（隧道）（靠近对方一侧公路区下方）
-bool terrain_crossing_tunnel_enemy_near_below
-# bit 31: 对方地形跨越增益点（隧道）（靠近对方一侧公路区上方）
-bool terrain_crossing_tunnel_enemy_near_above
+bool own_road_below
+# bit 27: 己方地形跨越增益点（隧道）（靠近己方一侧公路区中间）
+bool own_road_middle
+# bit 28: 己方地形跨越增益点（隧道）（靠近己方一侧公路区上方）
+bool own_road_above
+# bit 29: 己方地形跨越增益点（隧道）（靠近己方梯形高地较低处）
+bool own_trapezoid_low
+# bit 30: 己方地形跨越增益点（隧道）（靠近己方梯形高地较中间）
+bool own_trapezoid_middle
+# bit 31: 己方地形跨越增益点（隧道）（靠近己方梯形高地较高处）
+bool own_trapezoid_high
 
-# offset 4, bit 0-1: 对方地形跨越增益点（隧道）（靠近对方梯形高地区低处）
-# bit 0: 对方地形跨越增益点（隧道）（靠近对方梯形高地区低处）
-bool terrain_crossing_tunnel_enemy_trapezoid_low
-# bit 1: 对方地形跨越增益点（隧道）（靠近对方梯形高地区高处）
-bool terrain_crossing_tunnel_enemy_trapezoid_high
+# offset 4, bit 0: 对方地形跨越增益点（隧道）（靠近对方公路一侧下方）
+bool enemy_road_below
+# offset 4, bit 1: 对方地形跨越增益点（隧道）（靠近对方公路一侧中间）
+bool enemy_road_middle
+# offset 4, bit 2: 对方地形跨越增益点（隧道）（靠近对方公路一侧上方）
+bool enemy_road_above
+# offset 4, bit 3: 对方地形跨越增益点（隧道）（靠近对方梯形高地较低处）
+bool enemy_trapezoid_low
+# offset 4, bit 4: 对方地形跨越增益点（隧道）（靠近对方梯形高地较中间）
+bool enemy_trapezoid_middle
+# offset 4, bit 5: 对方地形跨越增益点（隧道）（靠近对方梯形高地较高处）
+bool enemy_trapezoid_high

@@ -74,7 +74,9 @@ void Append_CRC16_Check_Sum(uint8_t *pchMessage, uint32_t dwLength);
  * @param[in] dwLength : Stream length = Data + checksum
  * @param[in] wCRC : CRC16 init value(default : 0xFFFF)
  */
-uint16_t Get_CRC16_Check_Sum(const uint8_t *pchMessage, uint32_t dwLength, uint16_t wCRC = CRC16_INIT);
+uint16_t Get_CRC16_Check_Sum(
+    const uint8_t *pchMessage, uint32_t dwLength,
+    uint16_t wCRC = CRC16_INIT);
 
 /**
  * @brief CRC8 Verify function
@@ -99,21 +101,23 @@ void Append_CRC8_Check_Sum(uint8_t *pchMessage, uint16_t dwLength);
  * @param[in] ucCRC8 : CRC8 init value(default : 0xFF)
  * @return : CRC8 checksum
  */
-uint8_t Get_CRC8_Check_Sum(const uint8_t *pchMessage, uint16_t dwLength, uint8_t ucCRC8 = CRC8_INIT);
+uint8_t Get_CRC8_Check_Sum(
+    const uint8_t *pchMessage, uint16_t dwLength,
+    uint8_t ucCRC8 = CRC8_INIT);
 
 /**
  * @brief Convert uint16_t to hex string with "0x" prefix
- * 
- * @param value 
- * @return std::string 
+ *
+ * @param value
+ * @return std::string
  */
 std::string uint16_to_hex_string_with_prefix(uint16_t value);
 
 /**
  * @brief Convert uint16_t to hex string without "0x" prefix
- * 
- * @param value 
- * @return std::string 
+ *
+ * @param value
+ * @return std::string
  */
 std::string uint16_to_hex_string(uint16_t value);
 

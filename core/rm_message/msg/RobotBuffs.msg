@@ -1,5 +1,5 @@
 # 命令头 0x0204
-# 长度 7
+# 长度 8
 
 # 回血增益 (%)
 uint8 hp_buff
@@ -10,7 +10,7 @@ uint8 defense_buff
 # 负防御增益 (%)
 uint8 negative_defense_buff
 # 攻击增益 (%)
-uint8 attack_buff
+uint16 attack_buff
 # 剩余能量≥125%
 uint8 energy_125
 # 剩余能量≥100%
