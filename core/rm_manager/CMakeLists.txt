@@ -58,6 +58,15 @@ if(BUILD_TESTING)
     target_include_directories(test_msg_publisher PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/include)
   endif()
+
+  ament_add_gtest(test_frame_parser
+    test/test_frame_parser.cpp)
+  if(TARGET test_frame_parser)
+    target_link_libraries(test_frame_parser rm_manager_core)
+    ament_target_dependencies(test_frame_parser rclcpp rm_message std_msgs)
+    target_include_directories(test_frame_parser PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  endif()
 endif()
 
 ament_package()

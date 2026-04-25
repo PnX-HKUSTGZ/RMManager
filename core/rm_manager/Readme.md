@@ -64,11 +64,11 @@ ros2 run rm_manager rm_manager --ros-args --params-file params.yaml
 ### 原始观测
 
 - `/<node_name>/all_receive_data`
-  - 串口每次收到的原始字节流，`cmd_id = 0xFFFF`
+  - 串口每次 `read()` 收到的原始字节块，`cmd_id = 0xFFFF`
 - `/<node_name>/all_messages`
   - 所有通过标准 `0xA5` 帧校验的数据，按 `GeneralMessage` 转发
 - `/<node_name>/unknown_command`
-  - 合法帧，但当前链路下不属于机器人入站 typed 协议的数据
+  - 合法标准帧，但当前链路下不属于机器人入站 typed 协议的数据
 
 ### 裁判系统串口 typed topics
 
@@ -81,14 +81,10 @@ ros2 run rm_manager rm_manager --ros-args --params-file params.yaml
 
 ### 图传串口 typed topics
 
+- `remote_control`
+  - legacy/private 兼容输入，来源于旧图传私有遥控帧 `0xA9 0x53`
+  - 单独发布，不进入 `all_messages`
 - `custom_controller`
 - `client_custom_command`
 - `set_vtm_channel`
 - `query_vtm_channel`
-
-### V1.3.0 对齐说明
-
-- 已停用协议删除项 `0x0304`
-- 已停用旧图传私有遥控帧 `0xA9 0x53`
-- 不再发布 `/rm_manager/remote_control`
-- `0x0305/0x0306/0x0307/0x0308/0x0309/0x0310` 若出现在串口上，只会进入原始观测 topic，不再发布 typed topic

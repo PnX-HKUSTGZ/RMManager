@@ -52,7 +52,7 @@
 ## V1.3.0 对齐变更
 
 - `0x0304` 已从协议中删除，`rm_manager` 不再发布对应 typed topic。
-- 图传旧私有遥控帧 `0xA9 0x53` 不再视为受支持协议。
+- 图传旧私有遥控帧 `0xA9 0x53` 仅作为 `rm_manager` 的 legacy/private 兼容输入保留，单独发布 `/remote_control`，不作为标准 typed cmd 支持协议。
 - `RobotBuffs.attack_buff` 已改为 `uint16`，能量反馈位来自最后 1 字节。
 - `RFIDStatus` 已按 40 bit 完整展开，补齐装配增益点和 12 个隧道位置位。
 - `RadarMark` 已补齐空中机器人特殊标识位。

@@ -4,6 +4,22 @@
 namespace RMManager
 {
 
+namespace
+{
+
+const char * link_type_name(LinkType link_type)
+{
+    switch (link_type) {
+      case LinkType::Image:
+          return "image";
+      case LinkType::Referee:
+          return "referee";
+    }
+    return "unknown";
+}
+
+}  // namespace
+
 RMManagerNode::RMManagerNode(std::string name)
   : Node(name)
 {
@@ -22,6 +38,9 @@ RMManagerNode::RMManagerNode(std::string name)
         referee_status_pub_ =
           this->create_publisher<std_msgs::msg::Bool>(std::string(this->get_name()) +
         "/referee_port_status", 10);
+        remote_control_pub_ =
+          this->create_publisher<rm_message::msg::RemoteControl>(std::string(this->get_name()) +
+        "/remote_control", 10);
 
         debugger_pub_ =
           this->create_publisher<rm_message::msg::GeneralMessage>(std::string(this->get_name()) +
@@ -224,10 +243,6 @@ void RMManagerNode::_read_callback(
     LinkType link_type,
     std::atomic<bool> & link_status)
 {
-
-    // 当前处理的待处理的数据起始位置
-    std::size_t start_ptr = 0;
-
     // debugger 发布原始数据
     rm_message::msg::GeneralMessage debug_msg;
     debug_msg.cmd_id = 0xFFFF; // 特殊cmd_id表示原始数据
@@ -236,34 +251,74 @@ void RMManagerNode::_read_callback(
 
     debugger_pub_->publish(debug_msg);
 
-    while(data.size() > start_ptr) {
-        ParsedFrame frame;
-        const auto result = parse_standard_frame(data, start_ptr, frame);
+    auto & pending_buffer =
+      link_type == LinkType::Image ? image_pending_buffer_ : referee_pending_buffer_;
+    const auto parser_mode =
+      link_type == LinkType::Image ? StreamParserMode::kImageLink :
+      StreamParserMode::kStandardOnly;
 
-        switch (result) {
-          case FrameParseResult::kOk:
-              msg_publisher_->publish(link_type, frame.command_id, frame.payload);
-              link_status = true;
-              start_ptr += frame.total_length;
+    pending_buffer.insert(pending_buffer.end(), data.begin(), data.end());
+
+    while (true) {
+        ParsedPacket packet;
+        const auto outcome = extract_next_packet(pending_buffer, parser_mode, packet);
+
+        switch (outcome.result) {
+          case StreamParseResult::kOk:
+              _handle_parsed_packet(packet, link_type, link_status);
               break;
-          case FrameParseResult::kInvalidCrc16:
-              RCLCPP_WARN(this->get_logger(), "CRC16 check failed on %s link.",
-          link_type == LinkType::Image ? "image" : "referee");
-              start_ptr += frame.total_length;
+          case StreamParseResult::kNeedMoreData:
+              return;
+          case StreamParseResult::kSkippedBytes:
+              _log_stream_parser_event(outcome.event, link_type);
               break;
-          case FrameParseResult::kNeedMoreData:
-              return;
-          case FrameParseResult::kInvalidHeader:
-              return;
-          case FrameParseResult::kInvalidCrc8:
-              RCLCPP_WARN(this->get_logger(), "CRC8 check failed on %s link.",
-          link_type == LinkType::Image ? "image" : "referee");
-              return;
-          case FrameParseResult::kInvalidLength:
-              RCLCPP_WARN(this->get_logger(), "Frame length is invalid on %s link.",
-          link_type == LinkType::Image ? "image" : "referee");
-              return;
         }
+    }
+}
+
+void RMManagerNode::_handle_parsed_packet(
+    const ParsedPacket & packet,
+    LinkType link_type,
+    std::atomic<bool> & link_status)
+{
+    switch (packet.type) {
+      case ParsedPacketType::kStandardFrame:
+          msg_publisher_->publish(link_type, packet.frame.command_id, packet.frame.payload);
+          break;
+      case ParsedPacketType::kLegacyRemoteControl:
+          remote_control_pub_->publish(packet.remote_control);
+          break;
+    }
+
+    link_status = true;
+}
+
+void RMManagerNode::_log_stream_parser_event(
+    StreamParserEvent event,
+    LinkType link_type) const
+{
+    switch (event) {
+      case StreamParserEvent::kNone:
+      case StreamParserEvent::kSkippedNoise:
+      case StreamParserEvent::kInvalidLegacyHeader:
+          return;
+      case StreamParserEvent::kInvalidStandardCrc8:
+          RCLCPP_WARN(this->get_logger(), "CRC8 check failed on %s link.",
+                link_type_name(link_type));
+          return;
+      case StreamParserEvent::kInvalidStandardLength:
+          RCLCPP_WARN(this->get_logger(), "Frame length is invalid on %s link.",
+                link_type_name(link_type));
+          return;
+      case StreamParserEvent::kInvalidStandardCrc16:
+          RCLCPP_WARN(this->get_logger(), "CRC16 check failed on %s link.",
+                link_type_name(link_type));
+          return;
+      case StreamParserEvent::kInvalidLegacyCrc16:
+          RCLCPP_WARN(this->get_logger(),
+                "Legacy remote-control CRC16 check failed on %s link.",
+                link_type_name(link_type));
+          return;
     }
 }
 
