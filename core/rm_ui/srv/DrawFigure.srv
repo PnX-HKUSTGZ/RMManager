@@ -1,0 +1,16 @@
+uint8[3] figure_name
+uint32 figure_type
+uint32 layer
+uint32 color
+uint32 details_a
+uint32 details_b
+uint32 width
+uint32 start_x
+uint32 start_y
+uint32 details_c
+uint32 details_d
+uint32 details_e
+uint8[] chars
+---
+bool success
+string message

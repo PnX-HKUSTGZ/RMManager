@@ -1,0 +1,7 @@
+<library path="rm_ui_component">
+  <class name="rm_ui/RmUi"
+         type="rm_ui::RmUi"
+         base_class_type="rclcpp_components::NodeFactory">
+    <description>ROS2 UI bridge for publishing RoboMaster referee client drawing messages.</description>
+  </class>
+</library>

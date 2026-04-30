@@ -1,0 +1,7 @@
+<library path="rm_ui_debugger_component">
+  <class name="rm_ui/RmUiDebugger"
+         type="rm_ui::RmUiDebugger"
+         base_class_type="rclcpp_components::NodeFactory">
+    <description>Debug renderer for RoboMaster referee UI SendMessage payloads.</description>
+  </class>
+</library>

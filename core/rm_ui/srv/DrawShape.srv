@@ -1,0 +1,40 @@
+uint8 TYPE_LINE=0
+uint8 TYPE_RECT=1
+uint8 TYPE_CIRCLE=2
+uint8 TYPE_ELLIPSE=3
+uint8 TYPE_ARC=4
+uint8 TYPE_FLOAT=5
+uint8 TYPE_INT=6
+uint8 TYPE_STRING=7
+
+uint8 COLOR_TEAM=0
+uint8 COLOR_YELLOW=1
+uint8 COLOR_GREEN=2
+uint8 COLOR_ORANGE=3
+uint8 COLOR_MAGENTA=4
+uint8 COLOR_PINK=5
+uint8 COLOR_CYAN=6
+uint8 COLOR_BLACK=7
+uint8 COLOR_WHITE=8
+
+string name
+uint8 figure_type
+uint8 layer
+uint8 color
+uint16 width
+uint16 start_x
+uint16 start_y
+uint16 end_x
+uint16 end_y
+uint16 radius
+uint16 x_semiaxis
+uint16 y_semiaxis
+uint16 start_angle
+uint16 end_angle
+uint16 font_size
+float64 float_value
+int32 int_value
+string text
+---
+bool success
+string message
