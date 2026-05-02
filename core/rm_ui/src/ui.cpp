@@ -211,14 +211,6 @@ bool RmUi::buildShapeFigure(
     Figure & figure,
     std::string & error_message) const
 {
-    if (request.name.empty() || request.name.size() > figure.name.size()) {
-        error_message = "name must be 1 to 3 bytes";
-        return false;
-    }
-    if (!isPrintableAscii(request.name)) {
-        error_message = "name must contain printable ASCII only";
-        return false;
-    }
     if (!isValidFigureType(request.figure_type)) {
         error_message = "figure_type must be in range 0..7";
         return false;
@@ -292,7 +284,7 @@ bool RmUi::buildShapeFigure(
       };
 
     figure = Figure{};
-    std::copy(request.name.begin(), request.name.end(), figure.name.begin());
+    figure.name = request.figure_name;
     figure.figure_type = request.figure_type;
     figure.layer = request.layer;
     figure.color = request.color;
@@ -540,7 +532,7 @@ void RmUi::handleDrawShape(
     response->success = true;
     response->message = "shape accepted";
     RCLCPP_INFO(this->get_logger(), "Draw shape request accepted: name=%s type=%d layer=%d color=%d",
-        request->name.c_str(), request->figure_type, request->layer, request->color);
+        FigureNameToString(request->figure_name).c_str(), request->figure_type, request->layer, request->color);
 }
 
 void RmUi::handleDeleteLayer(

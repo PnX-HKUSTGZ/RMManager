@@ -17,7 +17,7 @@ uint8 COLOR_CYAN=6
 uint8 COLOR_BLACK=7
 uint8 COLOR_WHITE=8
 
-string name
+uint8[3] figure_name
 uint8 figure_type
 uint8 layer
 uint8 color

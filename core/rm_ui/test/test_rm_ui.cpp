@@ -71,7 +71,8 @@ rm_ui::srv::DrawShape::Request makeShapeRequest(
     uint8_t layer = 1)
 {
     rm_ui::srv::DrawShape::Request request;
-    request.name = name;
+    (void)name; // avoid unused parameter warning
+    // request.figure_name = name;
     request.figure_type = figure_type;
     request.layer = layer;
     request.color = rm_ui::srv::DrawShape::Request::COLOR_YELLOW;
