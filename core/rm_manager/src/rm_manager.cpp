@@ -231,7 +231,7 @@ RMManagerNode::RMManagerNode(std::string name)
 
     // 创建接受数据的sub
     send_sub_ = this->create_subscription<rm_message::msg::SendMessage>(
-            "send_message", 10,
+            "~/send_message", 10,
             std::bind(&RMManagerNode::_send_sub_callback, this, std::placeholders::_1)
     );
 

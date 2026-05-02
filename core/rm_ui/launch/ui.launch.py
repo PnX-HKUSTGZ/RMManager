@@ -12,11 +12,11 @@ def generate_launch_description():
         name='rm_ui',
         output='screen',
         parameters=[{
-            "sender_topic" : "send_message",
+            "sender_topic" : "rm_manager/send_message",
             "sender_hz": 15.0,
             "sender_target" : 2,
-            "sender_id": 1,
-            "receiver_id": 0x0101,
+            "sender_id": 2,
+            "receiver_id": 0x0102,
         }]
     )
 
