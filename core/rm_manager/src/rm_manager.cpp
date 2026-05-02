@@ -26,9 +26,20 @@ RMManagerNode::RMManagerNode(std::string name)
     // 初始化串口对象
     this->declare_parameter<std::string>("image_port", "/dev/ttyImage");
     this->declare_parameter<std::string>("referee_port", "/dev/ttyRef");
+    this->declare_parameter<bool>("disable_image_port_message_count_monitoring", false);
+    this->declare_parameter<bool>("disable_referee_port_message_count_monitoring", false);
 
     std::string image_port = this->get_parameter("image_port").as_string();
     std::string referee_port = this->get_parameter("referee_port").as_string();
+    bool disable_image_port_message_count_monitoring = this->get_parameter("disable_image_port_message_count_monitoring").as_bool();
+    bool disable_referee_port_message_count_monitoring = this->get_parameter("disable_referee_port_message_count_monitoring").as_bool();
+
+    // log the configuration
+    RCLCPP_INFO(this->get_logger(), "Configuration:");
+    RCLCPP_INFO(this->get_logger(), "  image_port: %s", image_port.c_str());
+    RCLCPP_INFO(this->get_logger(), "  referee_port: %s", referee_port.c_str());
+    RCLCPP_INFO(this->get_logger(), "  disable_image_port_message_count_monitoring: %s", disable_image_port_message_count_monitoring ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "  disable_referee_port_message_count_monitoring: %s", disable_referee_port_message_count_monitoring ? "true" : "false");
 
     try {
         // 创建状态发布者
@@ -94,12 +105,12 @@ RMManagerNode::RMManagerNode(std::string name)
     try {
         // 创建监测图传链路状态的线程
         if(image_port != "" && image_port != "None") {
-            image_check_thread_ = std::make_unique<std::thread>([this]() {
+            image_check_thread_ = std::make_unique<std::thread>([this, disable_image_port_message_count_monitoring]() {
                     int nomessage_times = 0;
                     rclcpp::Rate rate(1); // 1 Hz
                     while (rclcpp::ok()) {
                         rate.sleep();
-                        if (image_send_) {
+                        if (disable_image_port_message_count_monitoring || image_send_) {
                             nomessage_times = 0;
                             image_send_ = false;
                         } else {
@@ -145,12 +156,12 @@ RMManagerNode::RMManagerNode(std::string name)
     try {
         // 创建监测裁判系统链路状态的线程
         if(referee_port != "" && referee_port != "None") {
-            referee_check_thread_ = std::make_unique<std::thread>([this]() {
+            referee_check_thread_ = std::make_unique<std::thread>([this, disable_referee_port_message_count_monitoring]() {
                     int nomessage_times = 0;
                     rclcpp::Rate rate(1); // 1 Hz
                     while (rclcpp::ok()) {
                         rate.sleep();
-                        if (referee_send_) {
+                        if (disable_referee_port_message_count_monitoring || referee_send_) {
                             nomessage_times = 0;
                             referee_send_ = false;
                         } else {

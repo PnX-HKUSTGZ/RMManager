@@ -12,6 +12,7 @@ find_package(rclcpp_components REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rm_message REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc)
 find_package(rosidl_default_generators REQUIRED)
@@ -20,6 +21,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/DrawFigure.srv"
   "srv/DrawShape.srv"
   "srv/DeleteLayer.srv"
+  "srv/DeleteShape.srv"
 )
 
 rosidl_get_typesupport_target(cpp_typesupport_target
@@ -48,6 +50,7 @@ ament_target_dependencies(rm_ui_component
   rclcpp
   rclcpp_components
   rm_message
+  std_srvs
 )
 
 ament_target_dependencies(rm_ui_debugger_component

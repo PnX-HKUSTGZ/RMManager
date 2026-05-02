@@ -10,6 +10,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <variant>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -17,6 +18,8 @@
 #include "rm_ui/srv/delete_layer.hpp"
 #include "rm_ui/srv/draw_figure.hpp"
 #include "rm_ui/srv/draw_shape.hpp"
+#include "rm_ui/srv/delete_shape.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 namespace rm_ui
 {
@@ -77,9 +80,14 @@ private:
     {
         uint8_t delete_type{0};
         uint8_t layer{0};
+
+        static constexpr uint8_t DELETE_ALL_LAYER = 2;
+
     };
 
     using FigureName = std::array<uint8_t, 3>;
+    using PendingPalette = std::variant<PendingFigure, PendingDelete>; 
+
 
     static constexpr uint16_t kInteractionCmdId = 0x0301;
     static constexpr uint16_t kDeleteContentId = 0x0100;
@@ -115,6 +123,14 @@ private:
         const std::shared_ptr<rm_ui::srv::DeleteLayer::Request> request,
         std::shared_ptr<rm_ui::srv::DeleteLayer::Response> response);
 
+    void handleDeleteShape(
+        const std::shared_ptr<rm_ui::srv::DeleteShape::Request> request,
+        std::shared_ptr<rm_ui::srv::DeleteShape::Response> response);
+
+    void handleRedrawTrigger(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
     void update();
     void publishInteractionPayload(const std::vector<uint8_t> & payload);
     std::vector<uint8_t> buildInteractionPayload(
@@ -122,10 +138,10 @@ private:
         const std::vector<uint8_t> & user_data) const;
     std::vector<uint8_t> buildDeleteUserData(const PendingDelete & delete_op) const;
     std::vector<uint8_t> buildStringUserData(const PendingFigure & pending) const;
-    std::vector<uint8_t> buildFigureBatchUserData(std::deque<PendingFigure> & batch) const;
+    std::vector<uint8_t> buildFigureBatchUserData(std::vector<PendingFigure> & batch) const;
 
-    void eraseLayerFromCache(uint8_t layer);
-    void eraseLayerFromPendingFigures(uint8_t layer);
+    void eraseLayerFromCacheLocked(uint8_t layer);
+    // void eraseLayerFromPendingFigures(uint8_t layer);
     void enqueueFigureLocked(const Figure & figure);
 
     static bool fitsUnsignedBits(uint32_t value, uint8_t bits);
@@ -139,6 +155,8 @@ private:
     rclcpp::Service<rm_ui::srv::DrawFigure>::SharedPtr draw_service_;
     rclcpp::Service<rm_ui::srv::DrawShape>::SharedPtr draw_shape_service_;
     rclcpp::Service<rm_ui::srv::DeleteLayer>::SharedPtr delete_service_;
+    rclcpp::Service<rm_ui::srv::DeleteShape>::SharedPtr delete_shape_service_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr redraw_trigger_service_;
     rclcpp::TimerBase::SharedPtr update_timer_;
 
     std::string sender_topic_;
@@ -147,8 +165,8 @@ private:
     uint16_t receiver_id_{0};
 
     std::map<FigureName, Figure> cached_figures_;
-    std::deque<PendingFigure> pending_figures_;
-    std::deque<PendingDelete> pending_deletes_;
+    std::deque<PendingPalette> pending_palettes_;
+    // protect both cached_figures_ and pending_palettes_
     mutable std::mutex mutex_;
 };
 
