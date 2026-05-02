@@ -362,14 +362,14 @@ bool RmUi::buildShapeFigure(
               error_message = "y_semiaxis must fit in 11 bits";
               return false;
           }
-          if (request.start_angle > 360) {
-              error_message = "start_angle must be in range 0..360";
-              return false;
-          }
-          if (request.end_angle > 360) {
-              error_message = "end_angle must be in range 0..360";
-              return false;
-          }
+        //   if (request.start_angle > 360) {
+        //       error_message = "start_angle must be in range 0..360";
+        //       return false;
+        //   }
+        //   if (request.end_angle > 360) {
+        //       error_message = "end_angle must be in range 0..360";
+        //       return false;
+        //   }
           if (!rejectNonZero(request.end_x != 0, "end_x") ||
             !rejectNonZero(request.end_y != 0, "end_y") ||
             !rejectNonZero(request.radius != 0, "radius") ||
