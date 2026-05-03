@@ -151,6 +151,9 @@ RemoteController::RemoteController(const rclcpp::NodeOptions & options)
     RCLCPP_INFO(
         this->get_logger(), "Initialized %zu button state publishers",
         button_state_publishers_.size());
+    // initialize wheel state publishers
+    wheel_less_400_pub_ = this->create_publisher<std_msgs::msg::Bool>("~/wheel_less_400", 10);
+    wheel_bigger_1600_pub_ = this->create_publisher<std_msgs::msg::Bool>("~/wheel_bigger_1600", 10);
 
     last_time_ = this->now();
 
@@ -351,6 +354,7 @@ void RemoteController::cmdVelCallback(const rm_message::msg::RemoteControl::Shar
 
     updateButtonStates(msg);
     publishButtonStates();
+    publishWheelState(msg->wheel);
 
     if (button_release_off_[control_source_switch_button_]) {
         cycleToNextControlSource("button");
@@ -420,6 +424,21 @@ void RemoteController::sendEnableArm(const rm_message::msg::RemoteControl::Share
     enable_msg.data = (std::to_string(msg->cut) == "2");
     arm_enable_pub_->publish(enable_msg);
     RCLCPP_DEBUG(this->get_logger(), "Published arm_enable: %s", enable_msg.data ? "true" : "false");
+}
+
+void RemoteController::publishWheelState(uint16_t wheel_value)
+{
+    auto less_400_msg = std_msgs::msg::Bool();
+    less_400_msg.data = (wheel_value < 400);
+    wheel_less_400_pub_->publish(less_400_msg);
+
+    auto bigger_1600_msg = std_msgs::msg::Bool();
+    bigger_1600_msg.data = (wheel_value > 1600);
+    wheel_bigger_1600_pub_->publish(bigger_1600_msg);
+
+    RCLCPP_DEBUG(
+        this->get_logger(), "Published wheel states: less_400=%s, bigger_1600=%s",
+        less_400_msg.data ? "true" : "false", bigger_1600_msg.data ? "true" : "false");
 }
 
 void RemoteController::updateButtonStates(const rm_message::msg::RemoteControl::SharedPtr msg)

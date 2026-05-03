@@ -170,6 +170,9 @@ private:
 
     // Button state publishers - one for each button
     std::unordered_map<REMOTE_CONTROL_BUTTON, rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr> button_state_publishers_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr wheel_less_400_pub_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr wheel_bigger_1600_pub_;
+
 
     // Bridge velocity subscribers
     std::vector<rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr> bridge_vel_subs_;
@@ -401,6 +404,8 @@ private:
 
     // 发布所有按钮的当前状态
     void publishButtonStates();
+
+    void publishWheelState(uint16_t wheel_value);
 
 };
 
