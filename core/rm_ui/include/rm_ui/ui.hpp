@@ -2,6 +2,7 @@
 #define RM_UI__UI_HPP_
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -86,7 +87,7 @@ private:
     };
 
     using FigureName = std::array<uint8_t, 3>;
-    using PendingPalette = std::variant<PendingFigure, PendingDelete>; 
+    using PendingPalette = std::variant<PendingFigure, PendingDelete>;
 
 
     static constexpr uint16_t kInteractionCmdId = 0x0301;
@@ -168,6 +169,10 @@ private:
     std::deque<PendingPalette> pending_palettes_;
     // protect both cached_figures_ and pending_palettes_
     mutable std::mutex mutex_;
+
+    double publish_hz_{0.0};
+    std::chrono::steady_clock::time_point last_publish_time_{
+        std::chrono::steady_clock::time_point::min()};
 };
 
 } // namespace rm_ui

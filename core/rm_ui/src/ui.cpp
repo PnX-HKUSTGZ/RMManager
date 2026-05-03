@@ -8,6 +8,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -76,12 +77,16 @@ RmUi::RmUi(const rclcpp::NodeOptions & options)
 {
     sender_topic_ = this->declare_parameter<std::string>("sender_topic", "send_message");
     const double sender_hz = this->declare_parameter<double>("sender_hz", 30.0);
+    publish_hz_ = this->declare_parameter<double>("publish_hz", 0.0);
     const int sender_target = this->declare_parameter<int>("sender_target", 2);
     const int sender_id = this->declare_parameter<int>("sender_id", 0);
     const int receiver_id = this->declare_parameter<int>("receiver_id", 0);
 
     if (sender_hz <= 0.0) {
         throw std::runtime_error("sender_hz must be greater than 0");
+    }
+    if (publish_hz_ < 0.0) {
+        throw std::runtime_error("publish_hz must be >= 0");
     }
     if (sender_target != 1 && sender_target != 2) {
         throw std::runtime_error("sender_target must be 1 (image link) or 2 (referee link)");
@@ -121,8 +126,10 @@ RmUi::RmUi(const rclcpp::NodeOptions & options)
 
     RCLCPP_INFO(
         this->get_logger(),
-        "rm_ui initialized: sender_topic=%s target=%d sender_id=%u receiver_id=%u hz=%.3f",
-        sender_topic_.c_str(), sender_target_, sender_id_, receiver_id_, sender_hz);
+        "rm_ui initialized: sender_topic=%s target=%d sender_id=%u receiver_id=%u"
+        " sender_hz=%.3f publish_hz=%.3f",
+        sender_topic_.c_str(), sender_target_, sender_id_, receiver_id_,
+        sender_hz, publish_hz_);
 }
 
 bool RmUi::fitsUnsignedBits(uint32_t value, uint8_t bits)
@@ -490,7 +497,8 @@ void RmUi::handleDrawFigure(
         {
             response->success = false;
             response->message = "figure_type cannot change for an existing name";
-            RCLCPP_WARN(this->get_logger(), "Invalid draw figure request: figure_type cannot change for an existing name");
+            RCLCPP_WARN(this->get_logger(),
+                  "Invalid draw figure request: figure_type cannot change for an existing name");
             return;
         }
         enqueueFigureLocked(figure);
@@ -498,8 +506,10 @@ void RmUi::handleDrawFigure(
 
     response->success = true;
     response->message = "figure accepted";
-    RCLCPP_INFO(this->get_logger(), "Draw figure request accepted: name=%s type=%d layer=%d color=%d",
-        FigureNameToString(request->figure_name).c_str(), request->figure_type, request->layer, request->color);
+    RCLCPP_DEBUG(this->get_logger(),
+          "Draw figure request accepted: name=%s type=%d layer=%d color=%d",
+        FigureNameToString(request->figure_name).c_str(), request->figure_type, request->layer,
+          request->color);
 }
 
 void RmUi::handleDrawShape(
@@ -523,7 +533,8 @@ void RmUi::handleDrawShape(
         {
             response->success = false;
             response->message = "figure_type cannot change for an existing name";
-            RCLCPP_WARN(this->get_logger(), "Invalid draw shape request: figure_type cannot change for an existing name");
+            RCLCPP_WARN(this->get_logger(),
+                  "Invalid draw shape request: figure_type cannot change for an existing name");
             return;
         }
         enqueueFigureLocked(figure);
@@ -531,8 +542,10 @@ void RmUi::handleDrawShape(
 
     response->success = true;
     response->message = "shape accepted";
-    RCLCPP_INFO(this->get_logger(), "Draw shape request accepted: name=%s type=%d layer=%d color=%d",
-        FigureNameToString(request->figure_name).c_str(), request->figure_type, request->layer, request->color);
+    RCLCPP_DEBUG(this->get_logger(),
+          "Draw shape request accepted: name=%s type=%d layer=%d color=%d",
+        FigureNameToString(request->figure_name).c_str(), request->figure_type, request->layer,
+          request->color);
 }
 
 void RmUi::handleDeleteLayer(
@@ -540,19 +553,8 @@ void RmUi::handleDeleteLayer(
     std::shared_ptr<rm_ui::srv::DeleteLayer::Response> response)
 {
     const int layer = static_cast<int>(request->layer);
-    std::lock_guard<std::mutex> lock(mutex_);
 
-    if (layer == -1) {
-        pending_palettes_.push_back(PendingDelete{PendingDelete::DELETE_ALL_LAYER, 0});
-        cached_figures_.clear();
-        // pending_figures_.clear();
-        response->success = true;
-        response->message = "delete all accepted";
-        RCLCPP_INFO(this->get_logger(), "Delete all request accepted");
-        return;
-    }
-
-    if (layer < 0 || layer > 9) {
+    if (layer != -1 && (layer < 0 || layer > 9)) {
         response->success = false;
         response->message = "layer must be -1 or in range 0..9";
         RCLCPP_WARN(this->get_logger(), "Invalid delete layer request: layer %d is out of range",
@@ -560,64 +562,73 @@ void RmUi::handleDeleteLayer(
         return;
     }
 
-    const auto layer_u8 = static_cast<uint8_t>(layer);
-    pending_palettes_.push_back(PendingDelete{1, layer_u8});
-    // for (auto & pending : pending_figures_) {
-    //     if (pending.operation == Operation::Modify &&
-    //       pending.had_previous &&
-    //       pending.previous_layer == layer_u8 &&
-    //       pending.figure.layer != layer_u8)
-    //     {
-    //         pending.operation = Operation::Add;
-    //         pending.had_previous = false;
-    //     }
-    // }
-    eraseLayerFromCacheLocked(layer_u8);
-    // eraseLayerFromPendingFigures(layer_u8);
-    response->success = true;
-    response->message = "delete layer accepted";
-    RCLCPP_INFO(this->get_logger(), "Delete layer request accepted: %d", layer);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (layer == -1) {
+            pending_palettes_.push_back(PendingDelete{PendingDelete::DELETE_ALL_LAYER, 0});
+            cached_figures_.clear();
+        } else {
+            const auto layer_u8 = static_cast<uint8_t>(layer);
+            pending_palettes_.push_back(PendingDelete{1, layer_u8});
+            eraseLayerFromCacheLocked(layer_u8);
+        }
+    }
+
+    if (layer == -1) {
+        response->success = true;
+        response->message = "delete all accepted";
+        RCLCPP_INFO(this->get_logger(), "Delete all request accepted");
+    } else {
+        response->success = true;
+        response->message = "delete layer accepted";
+        RCLCPP_INFO(this->get_logger(), "Delete layer request accepted: %d", layer);
+    }
 }
 
 void RmUi::handleDeleteShape(
     const std::shared_ptr<rm_ui::srv::DeleteShape::Request> request,
     std::shared_ptr<rm_ui::srv::DeleteShape::Response> response)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    // RCLCPP_INFO_STREAM(this->get_logger(), "Received delete shape request: name="
-    //     << int(request->figure_name[0]) <<  int(request->figure_name[1]) << int(request->figure_name[2]));
-
     if (request->figure_name.empty() || request->figure_name.size() > 3) {
         response->success = false;
         response->message = "figure_name must be 1 to 3 bytes";
-        RCLCPP_WARN(this->get_logger(), "Invalid delete shape request: figure_name length %zu is out of range",
+        RCLCPP_WARN(this->get_logger(),
+              "Invalid delete shape request: figure_name length %zu is out of range",
             request->figure_name.size());
         return;
     }
 
-    // build a 3-byte name array, padding with zeros if necessary
     FigureName figure_name{};
     std::copy(request->figure_name.begin(), request->figure_name.end(), figure_name.begin());
 
-    // check if the figure exists in cache
-    const auto existing = cached_figures_.find(figure_name);
-    if (existing == cached_figures_.end()) {
-        response->success = false;
-        response->message = "figure with the given name does not exist";
-        RCLCPP_WARN(this->get_logger(), "Invalid delete shape request: figure with name %s does not exist",
-            FigureNameToString(request->figure_name).c_str());
-        return;
+    bool success = false;
+    std::string message;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        const auto existing = cached_figures_.find(figure_name);
+        if (existing == cached_figures_.end()) {
+            success = false;
+            message = "figure with the given name does not exist";
+        } else {
+            pending_palettes_.push_back(PendingFigure{
+                    existing->second, Operation::Delete, existing->second.layer, true});
+            cached_figures_.erase(existing);
+            success = true;
+            message = "delete shape accepted";
+        }
     }
 
-    pending_palettes_.push_back(PendingFigure{existing->second, Operation::Delete, existing->second.layer, true});
-    cached_figures_.erase(existing);
-
-    response->success = true;
-    response->message = "delete shape accepted";
-    RCLCPP_INFO(this->get_logger(), "Delete shape request accepted: %s", FigureNameToString(request->figure_name).c_str());
-
-    return;
+    response->success = success;
+    response->message = message;
+    if (success) {
+        RCLCPP_INFO(this->get_logger(), "Delete shape request accepted: %s",
+            FigureNameToString(request->figure_name).c_str());
+    } else {
+        RCLCPP_WARN(this->get_logger(),
+              "Invalid delete shape request: figure with name %s does not exist",
+            FigureNameToString(request->figure_name).c_str());
+    }
 }
 
 void RmUi::handleRedrawTrigger(
@@ -643,83 +654,75 @@ void RmUi::handleRedrawTrigger(
 
 void RmUi::update()
 {
-    std::optional<std::vector<uint8_t>> payload;
-
+    std::deque<PendingPalette> batch;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if(!pending_palettes_.empty()){
-            // if the type is delete layer
-            if(std::holds_alternative<PendingDelete>(pending_palettes_.front())){
-                const PendingDelete delete_op = std::get<PendingDelete>(pending_palettes_.front());
-                payload = buildInteractionPayload(kDeleteContentId, buildDeleteUserData(delete_op));
-                pending_palettes_.pop_front();
-            }
-            else if(std::get<PendingFigure>(pending_palettes_.front()).figure.figure_type != 
-                kStringFigureType){
-                // count the number of consecutive PendingFigure
-                std::vector<PendingFigure> batch;
-                batch.reserve(kMaxBatchFigureCount);
-                // until the type is PendingDelete
-                while(!pending_palettes_.empty() && 
-                    !std::holds_alternative<PendingDelete>(pending_palettes_.front())){
-                    
-                    const auto pending = pending_palettes_.front();
-                    if(std::holds_alternative<PendingFigure>(pending)){
-                        if(std::get<PendingFigure>(pending).figure.figure_type == kStringFigureType){
-                            break;
-                        }
-                        batch.push_back(std::get<PendingFigure>(pending));
-                    }
-                    pending_palettes_.pop_front();
+        if (pending_palettes_.empty()) {
+            return;
+        }
+        batch.swap(pending_palettes_);
+    }
 
-                    // check if the batch is full
-                    if(batch.size() >= kMaxBatchFigureCount){
+    while (!batch.empty()) {
+        if (std::holds_alternative<PendingDelete>(batch.front())) {
+            const PendingDelete delete_op = std::get<PendingDelete>(batch.front());
+            auto payload = buildInteractionPayload(kDeleteContentId,
+                  buildDeleteUserData(delete_op));
+            batch.pop_front();
+            publishInteractionPayload(payload);
+        } else if (std::get<PendingFigure>(batch.front()).figure.figure_type !=
+          kStringFigureType)
+        {
+            std::vector<PendingFigure> figures;
+            figures.reserve(kMaxBatchFigureCount);
+
+            while (!batch.empty() &&
+              !std::holds_alternative<PendingDelete>(batch.front()))
+            {
+                if (std::holds_alternative<PendingFigure>(batch.front())) {
+                    const auto & pending = std::get<PendingFigure>(batch.front());
+                    if (pending.figure.figure_type == kStringFigureType) {
                         break;
                     }
-
+                    figures.push_back(pending);
                 }
+                batch.pop_front();
 
-                // build the payload for the batch of PendingFigure
-                const auto batch_shape = batchShapeForCount(batch.size());
-                payload = buildInteractionPayload(
-                    batch_shape.second,
-                    buildFigureBatchUserData(batch));
+                if (figures.size() >= kMaxBatchFigureCount) {
+                    break;
+                }
             }
-            else if(std::get<PendingFigure>(pending_palettes_.front()).figure.figure_type == 
-                    kStringFigureType){
-                const PendingFigure pending = std::get<PendingFigure>(pending_palettes_.front());
-                payload = buildInteractionPayload(kStringContentId, buildStringUserData(pending));
-                pending_palettes_.pop_front();
-            }
-            else{
-                // this should not happen, but just in case
-                pending_palettes_.pop_front();
-                RCLCPP_ERROR(this->get_logger(), "Invalid pending palette type progress while building payload");
-            }
+
+            const auto batch_shape = batchShapeForCount(figures.size());
+            auto payload = buildInteractionPayload(
+                batch_shape.second,
+                buildFigureBatchUserData(figures));
+            publishInteractionPayload(payload);
+        } else {
+            const PendingFigure pending = std::get<PendingFigure>(batch.front());
+            auto payload = buildInteractionPayload(kStringContentId, buildStringUserData(pending));
+            batch.pop_front();
+            publishInteractionPayload(payload);
         }
     }
-
-    if (payload.has_value()) {
-        publishInteractionPayload(payload.value());
-    }
-
-    // log all the cached figures for debugging
-    // {
-    //     std::lock_guard<std::mutex> lock(mutex_);
-    //     RCLCPP_INFO(this->get_logger(), "Cached figures:");
-    //     for (const auto & entry : cached_figures_) {
-    //         const auto & figure = entry.second;
-    //         RCLCPP_INFO(this->get_logger(), "  name=%s type=%d layer=%d color=%d details_a=%d details_b=%d width=%d start_x=%d start_y=%d details_c=%d details_d=%d details_e=%d",
-    //             FigureNameToString(figure.name).c_str(), figure.figure_type, figure.layer, figure.color,
-    //             figure.details_a, figure.details_b, figure.width, figure.start_x, figure.start_y, figure.details_c, figure.details_d, figure.details_e);
-    //     }
-    // }
-
-
 }
 
 void RmUi::publishInteractionPayload(const std::vector<uint8_t> & payload)
 {
+    if (publish_hz_ > 0.0) {
+        const auto now = std::chrono::steady_clock::now();
+        const auto min_interval = std::chrono::nanoseconds(
+            static_cast<int64_t>(1e9 / publish_hz_));
+
+        if (last_publish_time_ != std::chrono::steady_clock::time_point::min()) {
+            const auto elapsed = now - last_publish_time_;
+            if (elapsed < min_interval) {
+                std::this_thread::sleep_for(min_interval - elapsed);
+            }
+        }
+        last_publish_time_ = std::chrono::steady_clock::now();
+    }
+
     rm_message::msg::SendMessage message;
     message.target = sender_target_;
     message.cmd_id = kInteractionCmdId;
