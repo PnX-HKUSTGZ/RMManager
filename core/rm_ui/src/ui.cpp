@@ -115,6 +115,11 @@ RmUi::RmUi(const rclcpp::NodeOptions & options)
     delete_shape_service_ = this->create_service<rm_ui::srv::DeleteShape>(
         "~/delete_shape",
         std::bind(&RmUi::handleDeleteShape, this, std::placeholders::_1, std::placeholders::_2));
+    delete_all_layers_trigger_service_ = this->create_service<std_srvs::srv::Trigger>(
+        "~/delete_all_layers",
+        std::bind(
+            &RmUi::handleDeleteAllLayersTrigger, this, std::placeholders::_1,
+            std::placeholders::_2));
     redraw_trigger_service_ = this->create_service<std_srvs::srv::Trigger>(
         "~/redraw",
         std::bind(&RmUi::handleRedrawTrigger, this, std::placeholders::_1, std::placeholders::_2));
@@ -565,8 +570,7 @@ void RmUi::handleDeleteLayer(
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (layer == -1) {
-            pending_palettes_.push_back(PendingDelete{PendingDelete::DELETE_ALL_LAYER, 0});
-            cached_figures_.clear();
+            enqueueDeleteAllLayersLocked();
         } else {
             const auto layer_u8 = static_cast<uint8_t>(layer);
             pending_palettes_.push_back(PendingDelete{1, layer_u8});
@@ -583,6 +587,22 @@ void RmUi::handleDeleteLayer(
         response->message = "delete layer accepted";
         RCLCPP_INFO(this->get_logger(), "Delete layer request accepted: %d", layer);
     }
+}
+
+void RmUi::handleDeleteAllLayersTrigger(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+    (void)request;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        enqueueDeleteAllLayersLocked();
+    }
+
+    response->success = true;
+    response->message = "delete all accepted";
+    RCLCPP_INFO(this->get_logger(), "Delete all trigger request accepted");
 }
 
 void RmUi::handleDeleteShape(
@@ -774,6 +794,13 @@ std::vector<uint8_t> RmUi::buildFigureBatchUserData(std::vector<PendingFigure> &
         appendFigureRecord(user_data, packFigure(noop_figure, Operation::Noop));
     }
     return user_data;
+}
+
+void RmUi::enqueueDeleteAllLayersLocked()
+{
+    pending_palettes_.clear();
+    pending_palettes_.push_back(PendingDelete{PendingDelete::DELETE_ALL_LAYER, 0});
+    cached_figures_.clear();
 }
 
 void RmUi::eraseLayerFromCacheLocked(uint8_t layer)

@@ -132,6 +132,7 @@ ament_export_dependencies(
   rclcpp_components
   rm_message
   sensor_msgs
+  std_srvs
   cv_bridge
   OpenCV
   rosidl_default_runtime
@@ -163,6 +164,7 @@ if(BUILD_TESTING)
       rclcpp
       rm_message
       sensor_msgs
+      std_srvs
     )
   endif()
 

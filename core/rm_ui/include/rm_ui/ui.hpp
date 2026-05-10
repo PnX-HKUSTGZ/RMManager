@@ -124,6 +124,10 @@ private:
         const std::shared_ptr<rm_ui::srv::DeleteLayer::Request> request,
         std::shared_ptr<rm_ui::srv::DeleteLayer::Response> response);
 
+    void handleDeleteAllLayersTrigger(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
     void handleDeleteShape(
         const std::shared_ptr<rm_ui::srv::DeleteShape::Request> request,
         std::shared_ptr<rm_ui::srv::DeleteShape::Response> response);
@@ -141,6 +145,7 @@ private:
     std::vector<uint8_t> buildStringUserData(const PendingFigure & pending) const;
     std::vector<uint8_t> buildFigureBatchUserData(std::vector<PendingFigure> & batch) const;
 
+    void enqueueDeleteAllLayersLocked();
     void eraseLayerFromCacheLocked(uint8_t layer);
     // void eraseLayerFromPendingFigures(uint8_t layer);
     void enqueueFigureLocked(const Figure & figure);
@@ -157,6 +162,7 @@ private:
     rclcpp::Service<rm_ui::srv::DrawShape>::SharedPtr draw_shape_service_;
     rclcpp::Service<rm_ui::srv::DeleteLayer>::SharedPtr delete_service_;
     rclcpp::Service<rm_ui::srv::DeleteShape>::SharedPtr delete_shape_service_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr delete_all_layers_trigger_service_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr redraw_trigger_service_;
     rclcpp::TimerBase::SharedPtr update_timer_;
 

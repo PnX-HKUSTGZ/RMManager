@@ -18,6 +18,7 @@
 #include "rm_ui/srv/draw_figure.hpp"
 #include "rm_ui/srv/draw_shape.hpp"
 #include "rm_ui/ui.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 namespace
 {
@@ -141,6 +142,7 @@ public:
         draw_service_ = "/rm_ui_test_" + suffix + "/draw_figure";
         draw_shape_service_ = "/rm_ui_test_" + suffix + "/draw_shape";
         delete_service_ = "/rm_ui_test_" + suffix + "/delete_layer";
+        delete_all_layers_service_ = "/rm_ui_test_" + suffix + "/delete_all_layers";
 
         rclcpp::NodeOptions options;
         options.parameter_overrides({
@@ -156,6 +158,7 @@ public:
                 "-r", "draw_figure:=" + draw_service_,
                 "-r", "draw_shape:=" + draw_shape_service_,
                 "-r", "delete_layer:=" + delete_service_,
+                "-r", "delete_all_layers:=" + delete_all_layers_service_,
         });
 
         ui_node_ = std::make_shared<rm_ui::RmUi>(options);
@@ -171,6 +174,8 @@ public:
         draw_shape_client_ =
           helper_node_->create_client<rm_ui::srv::DrawShape>(draw_shape_service_);
         delete_client_ = helper_node_->create_client<rm_ui::srv::DeleteLayer>(delete_service_);
+        delete_all_layers_client_ =
+          helper_node_->create_client<std_srvs::srv::Trigger>(delete_all_layers_service_);
 
         executor_.add_node(ui_node_);
         executor_.add_node(helper_node_);
@@ -231,6 +236,21 @@ public:
         return future.get();
     }
 
+    std_srvs::srv::Trigger::Response::SharedPtr deleteAllLayers()
+    {
+        if (!delete_all_layers_client_->wait_for_service(1s)) {
+            return nullptr;
+        }
+        auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+        auto future = delete_all_layers_client_->async_send_request(request);
+        if (executor_.spin_until_future_complete(future, 1s) !=
+          rclcpp::FutureReturnCode::SUCCESS)
+        {
+            return nullptr;
+        }
+        return future.get();
+    }
+
     bool waitForMessages(size_t count, std::chrono::milliseconds timeout)
     {
         const auto deadline = std::chrono::steady_clock::now() + timeout;
@@ -265,6 +285,7 @@ private:
     std::string draw_service_;
     std::string draw_shape_service_;
     std::string delete_service_;
+    std::string delete_all_layers_service_;
     rclcpp::executors::SingleThreadedExecutor executor_;
     std::shared_ptr<rm_ui::RmUi> ui_node_;
     rclcpp::Node::SharedPtr helper_node_;
@@ -272,6 +293,7 @@ private:
     rclcpp::Client<rm_ui::srv::DrawFigure>::SharedPtr draw_client_;
     rclcpp::Client<rm_ui::srv::DrawShape>::SharedPtr draw_shape_client_;
     rclcpp::Client<rm_ui::srv::DeleteLayer>::SharedPtr delete_client_;
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr delete_all_layers_client_;
     std::vector<rm_message::msg::SendMessage> received_messages_;
 };
 
@@ -381,6 +403,66 @@ TEST(RmUi, PublishesDeletePayloads)
     EXPECT_EQ(readLe16(layer_message.data_payload, 0), 0x0100);
     EXPECT_EQ(layer_message.data_payload.at(6), 1u);
     EXPECT_EQ(layer_message.data_payload.at(7), 3u);
+}
+
+TEST(RmUi, DeleteAllLayersTriggerPublishesDeleteAllAndClearsCache)
+{
+    RmUiHarness harness;
+    auto line = makeShapeRequest("A1", rm_ui::srv::DrawShape::Request::TYPE_LINE);
+    line.end_x = 300;
+    line.end_y = 400;
+    ASSERT_TRUE(harness.drawShape(line)->success);
+    ASSERT_TRUE(harness.waitForMessages(1, 200ms));
+
+    auto circle = makeShapeRequest("A1", rm_ui::srv::DrawShape::Request::TYPE_CIRCLE);
+    circle.radius = 50;
+    const auto rejected = harness.drawShape(circle);
+    ASSERT_NE(rejected, nullptr);
+    ASSERT_FALSE(rejected->success);
+
+    const auto delete_all = harness.deleteAllLayers();
+    ASSERT_NE(delete_all, nullptr);
+    ASSERT_TRUE(delete_all->success) << delete_all->message;
+    ASSERT_TRUE(harness.waitForMessages(2, 200ms));
+
+    const auto & delete_message = harness.messages().at(1);
+    expectCommonSendMessage(delete_message, 8);
+    EXPECT_EQ(readLe16(delete_message.data_payload, 0), 0x0100);
+    EXPECT_EQ(delete_message.data_payload.at(6), 2u);
+    EXPECT_EQ(delete_message.data_payload.at(7), 0u);
+
+    const auto accepted_after_delete = harness.drawShape(circle);
+    ASSERT_NE(accepted_after_delete, nullptr);
+    ASSERT_TRUE(accepted_after_delete->success) << accepted_after_delete->message;
+    ASSERT_TRUE(harness.waitForMessages(3, 200ms));
+
+    auto packed_circle = parsePackedFigure(harness.messages().at(2));
+    EXPECT_EQ(packed_circle.operation, 1u);
+    EXPECT_EQ(packed_circle.figure_type, 2u);
+    EXPECT_EQ(packed_circle.details_c, 50u);
+}
+
+TEST(RmUi, DeleteAllLayersTriggerDropsPendingDraws)
+{
+    RmUiHarness harness(1.0);
+    auto line = makeShapeRequest("PD1", rm_ui::srv::DrawShape::Request::TYPE_LINE);
+    line.end_x = 300;
+    line.end_y = 400;
+    ASSERT_TRUE(harness.drawShape(line)->success);
+
+    const auto delete_all = harness.deleteAllLayers();
+    ASSERT_NE(delete_all, nullptr);
+    ASSERT_TRUE(delete_all->success) << delete_all->message;
+
+    ASSERT_TRUE(harness.waitForMessages(1, 1500ms));
+    const auto & delete_message = harness.messages().at(0);
+    expectCommonSendMessage(delete_message, 8);
+    EXPECT_EQ(readLe16(delete_message.data_payload, 0), 0x0100);
+    EXPECT_EQ(delete_message.data_payload.at(6), 2u);
+    EXPECT_EQ(delete_message.data_payload.at(7), 0u);
+
+    harness.spinFor(1200ms);
+    EXPECT_EQ(harness.messages().size(), 1u);
 }
 
 TEST(RmUi, BatchesNonStringFiguresWithProtocolSlotCounts)

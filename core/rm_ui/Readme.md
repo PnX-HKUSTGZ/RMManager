@@ -29,7 +29,7 @@ ROS 2 节点内的 UI 缓存、协议打包和发送节奏控制。
 ![](./asset/4.png)
 
 增加和修改由节点根据 `图形名` 自动决定：缓存中不存在该名称时发送 Add，已存在时
-发送 Modify。删除由 `delete_layer` 服务显式触发。`draw_shape` 和 `draw_figure`
+发送 Modify。删除由 `delete_layer` 或 `delete_all_layers` 服务显式触发。`draw_shape` 和 `draw_figure`
 都会拒绝把同一个 `图形名` 改成不同 `figure_type`；如果确实需要换类型，应换名称，
 或先删除对应图层/全部后重新绘制。
 
@@ -159,6 +159,18 @@ string message
 - `layer = -1`: 删除全部图形。
 - `layer = 0..9`: 删除指定图层。
 - 其他值会被拒绝，不会发布删除包。
+
+### `delete_all_layers`
+
+删除全部图形的触发服务，服务类型为 `std_srvs/srv/Trigger`。调用后节点会发布
+裁判协议删除全部图形包，并清空本地 UI 缓存。该服务等价于调用 `delete_layer`
+并传入 `layer = -1`，适合只需要触发动作、不想构造 `DeleteLayer` 请求的上层节点。
+
+```srv
+---
+bool success
+string message
+```
 
 ## 参数
 
