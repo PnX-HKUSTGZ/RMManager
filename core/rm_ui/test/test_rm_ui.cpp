@@ -560,6 +560,40 @@ TEST(RmUi, DrawShapeMapsLineAndModifyByName)
     EXPECT_EQ(modify_figure.details_e, 13u);
 }
 
+TEST(RmUi, DrawFigureSkipsUnchangedModify)
+{
+    RmUiHarness harness;
+    auto request = makeFigureRequest(3, 0, 2);
+    request.color = 4;
+    request.width = 7;
+    request.start_x = 8;
+    request.start_y = 9;
+    request.details_d = 10;
+    request.details_e = 11;
+
+    const auto add_response = harness.draw(request);
+    ASSERT_NE(add_response, nullptr);
+    ASSERT_TRUE(add_response->success) << add_response->message;
+    ASSERT_TRUE(harness.waitForMessages(1, 200ms));
+    EXPECT_EQ(parsePackedFigure(harness.messages().at(0)).operation, 1u);
+
+    const auto unchanged_response = harness.draw(request);
+    ASSERT_NE(unchanged_response, nullptr);
+    ASSERT_TRUE(unchanged_response->success) << unchanged_response->message;
+    harness.spinFor(100ms);
+    EXPECT_EQ(harness.messages().size(), 1u);
+
+    request.details_e = 12;
+    const auto modify_response = harness.draw(request);
+    ASSERT_NE(modify_response, nullptr);
+    ASSERT_TRUE(modify_response->success) << modify_response->message;
+    ASSERT_TRUE(harness.waitForMessages(2, 200ms));
+
+    auto modify_figure = parsePackedFigure(harness.messages().at(1));
+    EXPECT_EQ(modify_figure.operation, 2u);
+    EXPECT_EQ(modify_figure.details_e, 12u);
+}
+
 TEST(RmUi, DrawShapeMapsGeometricTypes)
 {
     RmUiHarness harness(0.5);

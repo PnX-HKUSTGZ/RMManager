@@ -153,6 +153,7 @@ private:
     static bool fitsUnsignedBits(uint32_t value, uint8_t bits);
     static bool isValidFigureType(uint32_t value);
     static FigureType toFigureType(uint32_t value);
+    static bool figuresEqual(const Figure & lhs, const Figure & rhs);
     static std::array<uint8_t, kFigureRecordLength> packFigure(
         const Figure & figure,
         Operation operation);

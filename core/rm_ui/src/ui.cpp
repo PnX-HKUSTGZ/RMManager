@@ -152,6 +152,23 @@ RmUi::FigureType RmUi::toFigureType(uint32_t value)
     return static_cast<FigureType>(value);
 }
 
+bool RmUi::figuresEqual(const Figure & lhs, const Figure & rhs)
+{
+    return lhs.name == rhs.name &&
+           lhs.figure_type == rhs.figure_type &&
+           lhs.layer == rhs.layer &&
+           lhs.color == rhs.color &&
+           lhs.details_a == rhs.details_a &&
+           lhs.details_b == rhs.details_b &&
+           lhs.width == rhs.width &&
+           lhs.start_x == rhs.start_x &&
+           lhs.start_y == rhs.start_y &&
+           lhs.details_c == rhs.details_c &&
+           lhs.details_d == rhs.details_d &&
+           lhs.details_e == rhs.details_e &&
+           lhs.chars == rhs.chars;
+}
+
 bool RmUi::validateDrawRequest(
     const rm_ui::srv::DrawFigure::Request & request,
     std::string & error_message) const
@@ -818,8 +835,14 @@ void RmUi::enqueueFigureLocked(const Figure & figure)
 {
     const auto existing = cached_figures_.find(figure.name);
     const bool had_previous = existing != cached_figures_.end();
+    if (had_previous && figuresEqual(existing->second, figure)) {
+        RCLCPP_DEBUG(this->get_logger(),
+              "Skip unchanged figure modify: name=%s type=%u layer=%u",
+            FigureNameToString(figure.name).c_str(), figure.figure_type, figure.layer);
+        return;
+    }
+
     const Operation operation = had_previous ? Operation::Modify : Operation::Add;
-    // const uint32_t previous_layer = had_previous ? existing->second.layer : 0;
     cached_figures_[figure.name] = figure;
     pending_palettes_.push_back(PendingFigure{figure, operation, figure.layer, had_previous});
 }
