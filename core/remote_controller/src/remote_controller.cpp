@@ -133,9 +133,10 @@ RemoteController::RemoteController(const rclcpp::NodeOptions & options)
     cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(params_->cmd_vel_topic, 10);
     initializeBridgeTopics();
 
+    auto remote_control_qos = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
     cmd_vel_sub_ = this->create_subscription<rm_message::msg::RemoteControl>(
         params_->remote_controller_topic,
-        10,
+        remote_control_qos,
         std::bind(&RemoteController::cmdVelCallback, this, std::placeholders::_1));
     chasis_enable_pub_ = this->create_publisher<std_msgs::msg::Bool>(params_->chasis_enable_topic, 10);
     arm_enable_pub_ = this->create_publisher<std_msgs::msg::Bool>(params_->arm_enable_topic, 10);
@@ -169,6 +170,15 @@ RemoteController::RemoteController(const rclcpp::NodeOptions & options)
             this->get_logger(), "Watchdog timer initialized with timeout: %.2f seconds",
             params_->watchdog_timeout);
     }
+
+    heart_beat_timer_ = this->create_wall_timer(
+        std::chrono::seconds(1),
+        [this](){
+            RCLCPP_INFO(
+                this->get_logger(), "RemoteController is alive. Current control source: %s",
+                getCurrentControlSourceName().c_str());
+        }
+    );
 
     RCLCPP_INFO(
         this->get_logger(),

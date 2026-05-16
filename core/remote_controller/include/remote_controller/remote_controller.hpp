@@ -190,6 +190,7 @@ private:
 
     // Watchdog timer
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
+    rclcpp::TimerBase::SharedPtr heart_beat_timer_;
     rclcpp::Time last_message_time_;
     bool watchdog_triggered_ = false;
 
