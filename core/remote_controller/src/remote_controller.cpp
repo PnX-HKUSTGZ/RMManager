@@ -44,6 +44,9 @@ RemoteController::RemoteController(const rclcpp::NodeOptions & options)
         this->get_logger(), "  control_source_switch_key: %s",
         params_->control_source_switch_key.c_str());
     RCLCPP_INFO(
+        this->get_logger(), "  control_source_switch_keys size: %zu",
+        params_->control_source_switch_keys.size());
+    RCLCPP_INFO(
         this->get_logger(), "  control_source_switch_list size: %zu",
         params_->control_source_switch_list.size());
     RCLCPP_INFO(this->get_logger(), "  watchdog_timeout: %.2f", params_->watchdog_timeout);
@@ -99,13 +102,7 @@ RemoteController::RemoteController(const rclcpp::NodeOptions & options)
             content ? "true" : "false");
     }
 
-    if (REMOTE_CONTROL_BUTTON_MAP.find(params_->control_source_switch_key) == REMOTE_CONTROL_BUTTON_MAP.end()) {
-        RCLCPP_ERROR(
-            this->get_logger(), "Parameter error: unknown button name %s",
-            params_->control_source_switch_key.c_str());
-        throw std::runtime_error(
-                  "Parameter error: unknown button name " + params_->control_source_switch_key);
-    }
+    initializeControlSourceSwitchButtons();
 
     // Keyboard config
     if (
@@ -128,8 +125,6 @@ RemoteController::RemoteController(const rclcpp::NodeOptions & options)
     keyboard_down_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->keyboard_down_key);
     keyboard_up_ratio_ = params_->keyboard_up_ratio;
     keyboard_down_ratio_ = params_->keyboard_down_ratio;
-
-    control_source_switch_button_ = REMOTE_CONTROL_BUTTON_MAP.at(params_->control_source_switch_key);
 
     initializeControlSources();
 
@@ -297,6 +292,53 @@ void RemoteController::markControlSourceActivity()
     }
 }
 
+void RemoteController::initializeControlSourceSwitchButtons()
+{
+    const auto & parameter_overrides =
+        this->get_node_parameters_interface()->get_parameter_overrides();
+    const bool use_switch_keys =
+        parameter_overrides.find("control_source_switch_keys") != parameter_overrides.end();
+
+    const std::vector<std::string> switch_key_names = use_switch_keys ?
+        params_->control_source_switch_keys :
+        std::vector<std::string>{params_->control_source_switch_key};
+
+    if (switch_key_names.empty()) {
+        RCLCPP_ERROR(
+            this->get_logger(),
+            "Parameter error: control_source_switch_keys must not be empty");
+        throw std::runtime_error("Parameter error: control_source_switch_keys must not be empty");
+    }
+
+    control_source_switch_buttons_.clear();
+    control_source_switch_buttons_.reserve(switch_key_names.size());
+
+    std::unordered_set<std::string> seen_keys;
+    seen_keys.reserve(switch_key_names.size());
+
+    for (const auto & key_name : switch_key_names) {
+        if (!seen_keys.insert(key_name).second) {
+            continue;
+        }
+
+        auto it = REMOTE_CONTROL_BUTTON_MAP.find(key_name);
+        if (it == REMOTE_CONTROL_BUTTON_MAP.end()) {
+            RCLCPP_ERROR(
+                this->get_logger(), "Parameter error: unknown button name %s",
+                key_name.c_str());
+            throw std::runtime_error("Parameter error: unknown button name " + key_name);
+        }
+
+        control_source_switch_buttons_.push_back(it->second);
+    }
+
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Configured %zu control source switch key(s) from %s parameter",
+        control_source_switch_buttons_.size(),
+        use_switch_keys ? "control_source_switch_keys" : "control_source_switch_key");
+}
+
 void RemoteController::initializeControlSources()
 {
     control_sources_.clear();
@@ -459,8 +501,11 @@ void RemoteController::cmdVelCallback(const rm_message::msg::RemoteControl::Shar
     publishButtonStates();
     publishWheelState(msg->wheel);
 
-    if (button_release_off_[control_source_switch_button_]) {
-        cycleToNextControlSource("button");
+    for (const auto & button : control_source_switch_buttons_) {
+        if (button_release_off_[button]) {
+            cycleToNextControlSource("button");
+            break;
+        }
     }
 
     if (getCurrentControlSourceIndex() == 0) {

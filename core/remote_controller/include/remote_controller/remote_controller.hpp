@@ -209,6 +209,8 @@ private:
 
     void initializeControlSources();
 
+    void initializeControlSourceSwitchButtons();
+
     void initializeControlSourceSwitchList();
 
     void initializeBridgeTopics();
@@ -254,7 +256,7 @@ private:
 
     std::string stop_button_;
 
-    REMOTE_CONTROL_BUTTON control_source_switch_button_;
+    std::vector<REMOTE_CONTROL_BUTTON> control_source_switch_buttons_;
 
     REMOTE_CONTROL_BUTTON keyboard_forward_button_;
     REMOTE_CONTROL_BUTTON keyboard_backward_button_;

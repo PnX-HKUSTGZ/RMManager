@@ -145,10 +145,18 @@ remote_controller:
   control_source_switch_key:
     type: string
     default_value: "KEYL"
-    description: "Key to switch control source (remote channel -> keyboard/mouse -> bridge topics)"
+    description: "Deprecated. Key to switch control source (remote channel -> keyboard/mouse -> bridge topics)"
     read_only: true
     validation:
       one_of<>: [["STOP", "KEYL", "KEYR", "KEYB", "PRESSL", "PRESSR", "PRESSMID", "W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
+
+  control_source_switch_keys:
+    type: string_array
+    default_value: ["KEYL"]
+    description: "Keys to switch control source (remote channel -> keyboard/mouse -> bridge topics)"
+    read_only: true
+    validation:
+      subset_of<>: [["STOP", "KEYL", "KEYR", "KEYB", "PRESSL", "PRESSR", "PRESSMID", "W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
 
   control_source_switch_list:
     type: string_array

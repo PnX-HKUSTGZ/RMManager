@@ -189,12 +189,41 @@ protected:
 
     void PressControlSourceSwitch()
     {
+        PressKeyL();
+    }
+
+    void PressKeyL()
+    {
         auto pressed_msg = MakeNeutralRemoteControl();
         pressed_msg.keyl = 1;
         PublishRemoteControl(pressed_msg);
 
         auto released_msg = MakeNeutralRemoteControl();
         released_msg.keyl = 0;
+        PublishRemoteControl(released_msg);
+    }
+
+    void PressKeyR()
+    {
+        auto pressed_msg = MakeNeutralRemoteControl();
+        pressed_msg.keyr = 1;
+        PublishRemoteControl(pressed_msg);
+
+        auto released_msg = MakeNeutralRemoteControl();
+        released_msg.keyr = 0;
+        PublishRemoteControl(released_msg);
+    }
+
+    void PressKeyLAndKeyR()
+    {
+        auto pressed_msg = MakeNeutralRemoteControl();
+        pressed_msg.keyl = 1;
+        pressed_msg.keyr = 1;
+        PublishRemoteControl(pressed_msg);
+
+        auto released_msg = MakeNeutralRemoteControl();
+        released_msg.keyl = 0;
+        released_msg.keyr = 0;
         PublishRemoteControl(released_msg);
     }
 
@@ -218,6 +247,57 @@ protected:
             std::vector<std::string>{
                 "KEYBOARD_MOUSE",
                 "/test/remote_controller/bridge_b"});
+        return parameters;
+    }
+};
+
+class RemoteControllerMultiSwitchKeysTest : public RemoteControllerTest
+{
+protected:
+    std::vector<rclcpp::Parameter> GetParameterOverrides() override
+    {
+        auto parameters = RemoteControllerTest::GetParameterOverrides();
+        parameters.emplace_back(
+            "control_source_switch_keys",
+            std::vector<std::string>{"KEYL", "KEYR"});
+        return parameters;
+    }
+};
+
+class RemoteControllerDuplicateSwitchKeysTest : public RemoteControllerTest
+{
+protected:
+    std::vector<rclcpp::Parameter> GetParameterOverrides() override
+    {
+        auto parameters = RemoteControllerTest::GetParameterOverrides();
+        parameters.emplace_back(
+            "control_source_switch_keys",
+            std::vector<std::string>{"KEYL", "KEYL", "KEYR"});
+        return parameters;
+    }
+};
+
+class RemoteControllerLegacySwitchKeyTest : public RemoteControllerTest
+{
+protected:
+    std::vector<rclcpp::Parameter> GetParameterOverrides() override
+    {
+        auto parameters = RemoteControllerTest::GetParameterOverrides();
+        parameters.emplace_back("control_source_switch_key", "KEYR");
+        return parameters;
+    }
+};
+
+class RemoteControllerSwitchKeysPriorityTest : public RemoteControllerTest
+{
+protected:
+    std::vector<rclcpp::Parameter> GetParameterOverrides() override
+    {
+        auto parameters = RemoteControllerTest::GetParameterOverrides();
+        parameters.emplace_back("control_source_switch_key", "KEYR");
+        parameters.emplace_back(
+            "control_source_switch_keys",
+            std::vector<std::string>{"KEYL"});
         return parameters;
     }
 };
@@ -431,6 +511,47 @@ TEST_F(RemoteControllerTest, CyclesControlSourcesWithSwitchButton)
     }
 }
 
+TEST_F(RemoteControllerMultiSwitchKeysTest, CyclesControlSourcesWithMultipleSwitchKeys)
+{
+    PressKeyL();
+    ASSERT_TRUE(SpinUntil([this]() { return GetCurrentSource() == "KEYBOARD_MOUSE"; }, 2s));
+
+    PressKeyR();
+    ASSERT_TRUE(SpinUntil(
+        [this]() { return GetCurrentSource() == "/test/remote_controller/bridge_a"; },
+        2s));
+}
+
+TEST_F(RemoteControllerDuplicateSwitchKeysTest, DeduplicatesSwitchKeys)
+{
+    PressKeyL();
+    ASSERT_TRUE(SpinUntil([this]() { return GetCurrentSource() == "KEYBOARD_MOUSE"; }, 2s));
+}
+
+TEST_F(RemoteControllerMultiSwitchKeysTest, SimultaneousSwitchKeyEdgesCycleOnlyOnce)
+{
+    PressKeyLAndKeyR();
+    ASSERT_TRUE(SpinUntil([this]() { return GetCurrentSource() == "KEYBOARD_MOUSE"; }, 2s));
+}
+
+TEST_F(RemoteControllerLegacySwitchKeyTest, UsesLegacySwitchKeyWhenPluralKeyIsNotConfigured)
+{
+    PressKeyL();
+    EXPECT_EQ(GetCurrentSource(), "REMOTE_CHANNEL");
+
+    PressKeyR();
+    ASSERT_TRUE(SpinUntil([this]() { return GetCurrentSource() == "KEYBOARD_MOUSE"; }, 2s));
+}
+
+TEST_F(RemoteControllerSwitchKeysPriorityTest, PluralSwitchKeysOverrideLegacySwitchKey)
+{
+    PressKeyR();
+    EXPECT_EQ(GetCurrentSource(), "REMOTE_CHANNEL");
+
+    PressKeyL();
+    ASSERT_TRUE(SpinUntil([this]() { return GetCurrentSource() == "KEYBOARD_MOUSE"; }, 2s));
+}
+
 TEST_F(RemoteControllerSwitchListTest, CyclesOnlyAllowedSourcesWithSwitchButton)
 {
     const std::vector<std::string> expected_sources = {
@@ -543,6 +664,25 @@ TEST_F(RemoteControllerParamValidationTest, RejectsEmptyControlSourceSwitchEntry
         rclcpp::Parameter(
             "control_source_switch_list",
             std::vector<std::string>{""}),
+        rclcpp::Parameter("watchdog_enabled", false),
+    });
+
+    EXPECT_THROW(
+        {
+            auto node = std::make_shared<RemoteController>(options);
+            (void)node;
+        },
+        std::exception);
+}
+
+TEST_F(RemoteControllerParamValidationTest, RejectsEmptyControlSourceSwitchKeys)
+{
+    rclcpp::NodeOptions options;
+    options.use_global_arguments(false);
+    options.parameter_overrides({
+        rclcpp::Parameter(
+            "control_source_switch_keys",
+            std::vector<std::string>{}),
         rclcpp::Parameter("watchdog_enabled", false),
     });
 
