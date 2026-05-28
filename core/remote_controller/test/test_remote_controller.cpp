@@ -54,16 +54,7 @@ protected:
 
     void SetUp() override
     {
-        const std::vector<rclcpp::Parameter> parameters = {
-            rclcpp::Parameter("remote_controller_topic", "/test/remote_controller/input"),
-            rclcpp::Parameter("cmd_vel_topic", "/test/remote_controller/cmd_vel"),
-            rclcpp::Parameter("chasis_enable_topic", "/test/remote_controller/chassis_enable"),
-            rclcpp::Parameter("arm_enable_topic", "/test/remote_controller/arm_enable"),
-            rclcpp::Parameter(
-                "bridge_topics",
-                std::vector<std::string>{"/test/remote_controller/bridge_a", "/test/remote_controller/bridge_b"}),
-            rclcpp::Parameter("watchdog_enabled", false),
-        };
+        const std::vector<rclcpp::Parameter> parameters = GetParameterOverrides();
 
         rclcpp::NodeOptions options;
         options.use_global_arguments(false);
@@ -97,6 +88,22 @@ protected:
                        set_current_client_->service_is_ready();
             },
             2s));
+    }
+
+    virtual std::vector<rclcpp::Parameter> GetParameterOverrides()
+    {
+        return {
+            rclcpp::Parameter("remote_controller_topic", "/test/remote_controller/input"),
+            rclcpp::Parameter("cmd_vel_topic", "/test/remote_controller/cmd_vel"),
+            rclcpp::Parameter("chasis_enable_topic", "/test/remote_controller/chassis_enable"),
+            rclcpp::Parameter("arm_enable_topic", "/test/remote_controller/arm_enable"),
+            rclcpp::Parameter(
+                "bridge_topics",
+                std::vector<std::string>{
+                    "/test/remote_controller/bridge_a",
+                    "/test/remote_controller/bridge_b"}),
+            rclcpp::Parameter("watchdog_enabled", false),
+        };
     }
 
     void TearDown() override
@@ -198,6 +205,21 @@ protected:
     rclcpp::Client<rm_message::srv::GetCurrentChassisControlSource>::SharedPtr get_current_client_;
     rclcpp::Client<rm_message::srv::GetChassisControlSourceList>::SharedPtr get_list_client_;
     rclcpp::Client<rm_message::srv::SetCurrentChassisControlSource>::SharedPtr set_current_client_;
+};
+
+class RemoteControllerSwitchListTest : public RemoteControllerTest
+{
+protected:
+    std::vector<rclcpp::Parameter> GetParameterOverrides() override
+    {
+        auto parameters = RemoteControllerTest::GetParameterOverrides();
+        parameters.emplace_back(
+            "control_source_switch_list",
+            std::vector<std::string>{
+                "KEYBOARD_MOUSE",
+                "/test/remote_controller/bridge_b"});
+        return parameters;
+    }
 };
 
 class RemoteControllerParamValidationTest : public ::testing::Test
@@ -409,6 +431,35 @@ TEST_F(RemoteControllerTest, CyclesControlSourcesWithSwitchButton)
     }
 }
 
+TEST_F(RemoteControllerSwitchListTest, CyclesOnlyAllowedSourcesWithSwitchButton)
+{
+    const std::vector<std::string> expected_sources = {
+        "KEYBOARD_MOUSE",
+        "/test/remote_controller/bridge_b",
+        "KEYBOARD_MOUSE",
+    };
+
+    EXPECT_EQ(GetCurrentSource(), "REMOTE_CHANNEL");
+
+    for (const auto & expected_source : expected_sources) {
+        PressControlSourceSwitch();
+        ASSERT_TRUE(SpinUntil([this, &expected_source]() { return GetCurrentSource() == expected_source; }, 2s));
+    }
+}
+
+TEST_F(RemoteControllerSwitchListTest, ServiceCanSelectSourceSkippedBySwitchButton)
+{
+    auto response = SetCurrentSource("/test/remote_controller/bridge_a");
+
+    ASSERT_TRUE(response->success);
+    EXPECT_EQ(GetCurrentSource(), "/test/remote_controller/bridge_a");
+
+    PressControlSourceSwitch();
+    ASSERT_TRUE(SpinUntil(
+        [this]() { return GetCurrentSource() == "/test/remote_controller/bridge_b"; },
+        2s));
+}
+
 TEST_F(RemoteControllerParamValidationTest, RejectsDuplicateBridgeTopics)
 {
     rclcpp::NodeOptions options;
@@ -432,6 +483,66 @@ TEST_F(RemoteControllerParamValidationTest, RejectsEmptyBridgeTopic)
     options.use_global_arguments(false);
     options.parameter_overrides({
         rclcpp::Parameter("bridge_topics", std::vector<std::string>{""}),
+        rclcpp::Parameter("watchdog_enabled", false),
+    });
+
+    EXPECT_THROW(
+        {
+            auto node = std::make_shared<RemoteController>(options);
+            (void)node;
+        },
+        std::exception);
+}
+
+TEST_F(RemoteControllerParamValidationTest, RejectsUnknownControlSourceSwitchEntry)
+{
+    rclcpp::NodeOptions options;
+    options.use_global_arguments(false);
+    options.parameter_overrides({
+        rclcpp::Parameter(
+            "bridge_topics",
+            std::vector<std::string>{"/test/bridge"}),
+        rclcpp::Parameter(
+            "control_source_switch_list",
+            std::vector<std::string>{"/test/missing"}),
+        rclcpp::Parameter("watchdog_enabled", false),
+    });
+
+    EXPECT_THROW(
+        {
+            auto node = std::make_shared<RemoteController>(options);
+            (void)node;
+        },
+        std::exception);
+}
+
+TEST_F(RemoteControllerParamValidationTest, RejectsDuplicateControlSourceSwitchEntry)
+{
+    rclcpp::NodeOptions options;
+    options.use_global_arguments(false);
+    options.parameter_overrides({
+        rclcpp::Parameter(
+            "control_source_switch_list",
+            std::vector<std::string>{"KEYBOARD_MOUSE", "KEYBOARD_MOUSE"}),
+        rclcpp::Parameter("watchdog_enabled", false),
+    });
+
+    EXPECT_THROW(
+        {
+            auto node = std::make_shared<RemoteController>(options);
+            (void)node;
+        },
+        std::exception);
+}
+
+TEST_F(RemoteControllerParamValidationTest, RejectsEmptyControlSourceSwitchEntry)
+{
+    rclcpp::NodeOptions options;
+    options.use_global_arguments(false);
+    options.parameter_overrides({
+        rclcpp::Parameter(
+            "control_source_switch_list",
+            std::vector<std::string>{""}),
         rclcpp::Parameter("watchdog_enabled", false),
     });
 

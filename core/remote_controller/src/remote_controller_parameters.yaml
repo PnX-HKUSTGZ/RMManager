@@ -150,6 +150,15 @@ remote_controller:
     validation:
       one_of<>: [["STOP", "KEYL", "KEYR", "KEYB", "PRESSL", "PRESSR", "PRESSMID", "W", "S", "A", "D", "SHIFT", "CTRL", "Q", "E", "R", "F", "G", "Z", "X", "C", "V", "B"]]
 
+  control_source_switch_list:
+    type: string_array
+    default_value: []
+    read_only: true
+    description: "List of control sources reachable by control_source_switch_key. 
+      Empty list allows all sources. 
+      REMOTE_CHANNEL is the name of remote_controller
+      KEYBOARD_MOUSE is the name of keyboard_mouse control"
+
   bridge_topics:
     type: string_array
     default_value: []

@@ -43,6 +43,9 @@ RemoteController::RemoteController(const rclcpp::NodeOptions & options)
     RCLCPP_INFO(
         this->get_logger(), "  control_source_switch_key: %s",
         params_->control_source_switch_key.c_str());
+    RCLCPP_INFO(
+        this->get_logger(), "  control_source_switch_list size: %zu",
+        params_->control_source_switch_list.size());
     RCLCPP_INFO(this->get_logger(), "  watchdog_timeout: %.2f", params_->watchdog_timeout);
     RCLCPP_INFO(
         this->get_logger(), "  watchdog_enabled: %s",
@@ -253,7 +256,34 @@ bool RemoteController::setCurrentControlSourceName(
 
 void RemoteController::cycleToNextControlSource(const std::string & reason)
 {
-    const size_t next_index = (current_control_source_index_ + 1) % control_sources_.size();
+    if (control_source_switch_indices_.empty()) {
+        RCLCPP_WARN(
+            this->get_logger(),
+            "No control sources are available for button switching.");
+        return;
+    }
+
+    auto it = std::find(
+        control_source_switch_indices_.begin(),
+        control_source_switch_indices_.end(),
+        current_control_source_index_);
+
+    if (it != control_source_switch_indices_.end()) {
+        ++it;
+        if (it == control_source_switch_indices_.end()) {
+            it = control_source_switch_indices_.begin();
+        }
+    } else {
+        it = std::upper_bound(
+            control_source_switch_indices_.begin(),
+            control_source_switch_indices_.end(),
+            current_control_source_index_);
+        if (it == control_source_switch_indices_.end()) {
+            it = control_source_switch_indices_.begin();
+        }
+    }
+
+    const size_t next_index = *it;
     setCurrentControlSourceIndex(next_index, reason);
 }
 
@@ -290,10 +320,73 @@ void RemoteController::initializeControlSources()
     }
 
     current_control_source_index_ = 0;
+    initializeControlSourceSwitchList();
 
     RCLCPP_INFO(
         this->get_logger(), "Total control sources: %zu (Remote + Keyboard + %zu Bridges)",
         control_sources_.size(), params_->bridge_topics.size());
+}
+
+void RemoteController::initializeControlSourceSwitchList()
+{
+    control_source_switch_indices_.clear();
+
+    if (params_->control_source_switch_list.empty()) {
+        control_source_switch_indices_.reserve(control_sources_.size());
+        for (size_t i = 0; i < control_sources_.size(); ++i) {
+            control_source_switch_indices_.push_back(i);
+        }
+
+        RCLCPP_INFO(
+            this->get_logger(),
+            "Control source switch key can reach all %zu control sources",
+            control_source_switch_indices_.size());
+        return;
+    }
+
+    std::unordered_set<std::string> allowed_sources;
+    allowed_sources.reserve(params_->control_source_switch_list.size());
+
+    for (const auto & source : params_->control_source_switch_list) {
+        if (source.empty()) {
+            RCLCPP_ERROR(
+                this->get_logger(),
+                "Parameter error: control_source_switch_list contains an empty source");
+            throw std::runtime_error(
+                      "Parameter error: control_source_switch_list contains an empty source");
+        }
+
+        if (!allowed_sources.insert(source).second) {
+            RCLCPP_ERROR(
+                this->get_logger(),
+                "Parameter error: duplicate control source switch entry %s",
+                source.c_str());
+            throw std::runtime_error(
+                      "Parameter error: duplicate control source switch entry " + source);
+        }
+
+        if (findControlSourceIndex(source) < 0) {
+            RCLCPP_ERROR(
+                this->get_logger(),
+                "Parameter error: unknown control source switch entry %s",
+                source.c_str());
+            throw std::runtime_error(
+                      "Parameter error: unknown control source switch entry " + source);
+        }
+    }
+
+    control_source_switch_indices_.reserve(allowed_sources.size());
+    for (size_t i = 0; i < control_sources_.size(); ++i) {
+        if (allowed_sources.find(control_sources_[i]) != allowed_sources.end()) {
+            control_source_switch_indices_.push_back(i);
+        }
+    }
+
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Control source switch key can reach %zu of %zu control sources",
+        control_source_switch_indices_.size(),
+        control_sources_.size());
 }
 
 void RemoteController::createControlSourceServices()

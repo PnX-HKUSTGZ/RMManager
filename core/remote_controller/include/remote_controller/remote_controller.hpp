@@ -186,6 +186,7 @@ private:
 
     // Control source management
     std::vector<std::string> control_sources_;
+    std::vector<size_t> control_source_switch_indices_;
     size_t current_control_source_index_ = 0;
 
     // Watchdog timer
@@ -207,6 +208,8 @@ private:
     void sendEnableArm(const rm_message::msg::RemoteControl::SharedPtr msg);
 
     void initializeControlSources();
+
+    void initializeControlSourceSwitchList();
 
     void initializeBridgeTopics();
 
