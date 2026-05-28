@@ -47,8 +47,21 @@ typedef struct
     uint8_t gpio_state;
     uint8_t reserved[11];
 } ControlData;
-
 static_assert(sizeof(ControlData) == 30, "ControlData must be 30 bytes");
+
+#pragma pack(push, 1)
+typedef struct
+{
+    /**
+     * \brief 7个电机的机械角度 (14字节)
+     * \brief 顺序为 j0 - j6
+     */
+    float rotor_angles[JOINT_NUM];
+    uint8_t reserved[2];
+} OnlyJointsControlData;
+#pragma pack(pop)
+static_assert(sizeof(OnlyJointsControlData) == 30, "OnlyJointsControlData must be 30 bytes");
+
 
 /**
  * \class RmCustomControllerState
@@ -60,6 +73,11 @@ public:
 
     ~RmCustomControllerState() = default;
 
+    enum class MessageModel {
+        ORIGINAL = 1, // 原始通信规则
+        JOINTS_ONLY = 2 // 仅关节消息规则
+    };
+
 private:
     // 单机械臂关节状态topic
     std::string arm_state_topic_;
@@ -67,6 +85,8 @@ private:
     std::vector<std::string> joint_names_;
     // 单机械臂关节反转标志，长度为7
     std::vector<bool> joint_reverse_;
+    // 协议模式
+    MessageModel message_model_ = MessageModel::ORIGINAL;
 
     // 裁判系统的自定义数据topic
     std::string ref_topic_;
@@ -87,6 +107,8 @@ private:
     std::array<rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr, GPIO_NUM> gpio_publishers_;
 
     void ref_topic_callback(const rm_message::msg::CustomController::SharedPtr msg);
+    void ref_topic_callback_joints_only(const rm_message::msg::CustomController::SharedPtr msg);
+    void ref_topic_callback_original(const rm_message::msg::CustomController::SharedPtr msg);
 
     // 底盘命令相关成员
     bool enable_chassis_cmd_;

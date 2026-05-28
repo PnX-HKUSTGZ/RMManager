@@ -36,6 +36,18 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     ref_topic_ = params_.ref_topic;
     watchdog_timeout_ = params_.watchdog_timeout;
 
+    switch (params_.message_model){
+        case static_cast<int>(MessageModel::ORIGINAL):
+            message_model_ = MessageModel::ORIGINAL;
+            break;
+        case static_cast<int>(MessageModel::JOINTS_ONLY):
+            message_model_ = MessageModel::JOINTS_ONLY;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Invalid message_model parameter: %ld", params_.message_model);
+            throw std::runtime_error("Invalid message_model parameter");
+    }
+
     // 检查单臂关节参数长度是否为7
     if (joint_names_.size() != JOINT_NUM) {
         RCLCPP_ERROR(this->get_logger(), "Joint names size must be %d, got %zu", JOINT_NUM,
@@ -60,6 +72,8 @@ RmCustomControllerState::RmCustomControllerState(const rclcpp::NodeOptions & opt
     }
     RCLCPP_INFO(this->get_logger(), "Ref topic: %s", ref_topic_.c_str());
     RCLCPP_INFO(this->get_logger(), "Watchdog timeout: %.2f seconds", watchdog_timeout_);
+    RCLCPP_INFO(this->get_logger(), "Message Model is %s",
+                message_model_ == MessageModel::ORIGINAL ? "ORIGINAL" : "JOINTS_ONLY");
 
     // 读取底盘命令相关参数
     enable_chassis_cmd_ = params_.enable_chassis_cmd;
@@ -167,6 +181,57 @@ void RmCustomControllerState::ref_topic_callback(
     //     RCLCPP_INFO(this->get_logger(), "  data[%zu]: %u", i, msg->data[i]);
     // }
 
+    switch (message_model_) {
+        case MessageModel::ORIGINAL:
+            ref_topic_callback_original(msg);
+            break;
+        case MessageModel::JOINTS_ONLY:
+            ref_topic_callback_joints_only(msg);
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Invalid message model");
+            break;
+    }
+
+    // RCLCPP_DEBUG(this->get_logger(), "Published joint states from custom controller data");
+
+}
+
+void RmCustomControllerState::ref_topic_callback_joints_only(const rm_message::msg::CustomController::SharedPtr msg){
+    // 解析裁判系统自定义数据
+
+    OnlyJointsControlData control_data;
+    rclcpp::Time now = this->now();
+    std::memcpy(&control_data, msg->data.data(), sizeof(OnlyJointsControlData));
+
+    // debug log
+    RCLCPP_DEBUG(this->get_logger(), "Received joints-only custom controller data:");
+    RCLCPP_DEBUG(this->get_logger(), "  Rotor Angles: ");
+    for (size_t i = 0; i < JOINT_NUM; ++i) {
+        RCLCPP_DEBUG(this->get_logger(), "    %f", control_data.rotor_angles[i]);
+    }
+
+    // publish joint states
+    auto joint_state_msg = std::make_shared<sensor_msgs::msg::JointState>();
+    joint_state_msg->header.stamp = now;
+    joint_state_msg->name = joint_names_;
+    joint_state_msg->position.resize(JOINT_NUM, 0.0);
+    joint_state_msg->velocity.resize(JOINT_NUM, 0.0);
+    joint_state_msg->effort.resize(JOINT_NUM, 0.0);
+    for (size_t i = 0; i < JOINT_NUM; ++i) {
+        float position = control_data.rotor_angles[i];
+        joint_state_msg->position[i] = joint_reverse_[i] ? -position : position;
+    }
+
+    arm_state_pub_->publish(*joint_state_msg);
+
+    return;
+
+}
+
+
+void RmCustomControllerState::ref_topic_callback_original(const rm_message::msg::CustomController::SharedPtr msg){
+    
     // 解析裁判系统自定义数据
     ControlData control_data;
     rclcpp::Time now = this->now();
@@ -220,8 +285,7 @@ void RmCustomControllerState::ref_topic_callback(
         control_data.channel_3
     );
 
-    // RCLCPP_DEBUG(this->get_logger(), "Published joint states from custom controller data");
-
+    return;
 }
 
 float RmCustomControllerState::apply_channel_mapping(
